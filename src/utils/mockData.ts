@@ -142,7 +142,9 @@ export const mockCampusGeneralPosts: Post[] = [
   {
     id: "post-cg-1",
     userId: "user-1",
+    title: "Question about Economics Class",
     content: "Has anyone taken Professor Smith's Economics class? I've heard it's challenging but rewarding.",
+    channelType: "CampusGeneral",
     category: "Study",
     createdAt: new Date("2023-09-15T10:30:00"),
     updatedAt: new Date("2023-09-15T10:30:00"),
@@ -153,7 +155,9 @@ export const mockCampusGeneralPosts: Post[] = [
   {
     id: "post-cg-2",
     userId: "user-2",
+    title: "Library Renovation Completed!",
     content: "The campus library just got renovated and it looks amazing! Extra study spaces and better lighting.",
+    channelType: "CampusGeneral",
     imageUrl: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f",
     category: "Fun",
     createdAt: new Date("2023-09-14T14:45:00"),
@@ -165,7 +169,9 @@ export const mockCampusGeneralPosts: Post[] = [
   {
     id: "post-cg-3",
     userId: "user-5",
+    title: "Cafeteria Drama Today",
     content: "Did anyone else see the drama in the cafeteria today? Someone spilled their entire lunch tray on the Dean!",
+    channelType: "CampusGeneral",
     category: "Drama",
     createdAt: new Date("2023-09-13T12:15:00"),
     updatedAt: new Date("2023-09-13T12:15:00"),
@@ -176,7 +182,9 @@ export const mockCampusGeneralPosts: Post[] = [
   {
     id: "post-cg-4",
     userId: "user-1",
+    title: "Calculus III Study Group",
     content: "Study group for Calculus III forming. We meet twice a week at the library. DM if interested!",
+    channelType: "CampusGeneral",
     category: "Study",
     createdAt: new Date("2023-09-12T16:20:00"),
     updatedAt: new Date("2023-09-12T16:20:00"),
@@ -187,7 +195,9 @@ export const mockCampusGeneralPosts: Post[] = [
   {
     id: "post-cg-5",
     userId: "user-2",
+    title: "Biology Midterm Postponed",
     content: "Just found out our midterm for Biology is postponed! Now we have an extra week to prepare.",
+    channelType: "CampusGeneral",
     category: "Study",
     createdAt: new Date("2023-09-11T09:10:00"),
     updatedAt: new Date("2023-09-11T09:10:00"),
@@ -202,7 +212,9 @@ export const mockForumPosts: Post[] = [
   {
     id: "post-forum-1",
     userId: "user-3",
+    title: "Best Study Techniques?",
     content: "What are the best study techniques that actually work for you? I'm trying to improve my focus and retention.",
+    channelType: "Forum",
     category: "Study",
     createdAt: new Date("2023-09-15T11:30:00"),
     updatedAt: new Date("2023-09-15T11:30:00"),
@@ -213,7 +225,9 @@ export const mockForumPosts: Post[] = [
   {
     id: "post-forum-2",
     userId: "user-4",
+    title: "New Coffee Shop Review",
     content: "Has anyone tried the new coffee shop that opened near campus? Their cold brew is amazing!",
+    channelType: "Forum",
     imageUrl: "https://images.unsplash.com/photo-1541167760496-1628856ab772",
     category: "Fun",
     createdAt: new Date("2023-09-14T15:45:00"),
@@ -225,7 +239,9 @@ export const mockForumPosts: Post[] = [
   {
     id: "post-forum-3",
     userId: "user-1",
+    title: "Too Much Homework This Semester",
     content: "Anyone else feel like there's too much homework this semester? I'm struggling to keep up with everything.",
+    channelType: "Forum",
     category: "Drama",
     createdAt: new Date("2023-09-13T13:15:00"),
     updatedAt: new Date("2023-09-13T13:15:00"),
@@ -236,7 +252,9 @@ export const mockForumPosts: Post[] = [
   {
     id: "post-forum-4",
     userId: "user-5",
+    title: "Online Course Recommendations",
     content: "Looking for recommendations on the best online courses to supplement my studies. Any suggestions?",
+    channelType: "Forum",
     category: "Study",
     createdAt: new Date("2023-09-12T17:20:00"),
     updatedAt: new Date("2023-09-12T17:20:00"),
@@ -247,7 +265,9 @@ export const mockForumPosts: Post[] = [
   {
     id: "post-forum-5",
     userId: "user-2",
+    title: "Research Project Completed!",
     content: "Just finished my research project and it went so well! Feeling accomplished!",
+    channelType: "Forum",
     imageUrl: "https://images.unsplash.com/photo-1513135065346-a098a63a71ee",
     category: "Fun",
     createdAt: new Date("2023-09-11T10:10:00"),
@@ -258,12 +278,14 @@ export const mockForumPosts: Post[] = [
   }
 ];
 
-// Mock Posts for Campus Community (TDTU)
+// Mock Posts for Campus Community (TDTU) - no reactions or comments
 export const mockCampusCommunityPosts: Post[] = [
   {
     id: "post-cc-1",
     userId: "user-1",
+    title: "CS 101 Study Partners Needed",
     content: "Looking for study partners for the upcoming CS 101 exam. Anyone interested?",
+    channelType: "CampusCommunity",
     createdAt: new Date("2023-09-15T09:30:00"),
     updatedAt: new Date("2023-09-15T09:30:00"),
     user: mockUsers.find(u => u.id === "user-1")!,
@@ -273,7 +295,9 @@ export const mockCampusCommunityPosts: Post[] = [
   {
     id: "post-cc-2",
     userId: "user-2",
+    title: "Campus Clean-up Event",
     content: "Organizing a campus clean-up event this Saturday. We need volunteers! Message me if you can help.",
+    channelType: "CampusCommunity",
     createdAt: new Date("2023-09-14T13:45:00"),
     updatedAt: new Date("2023-09-14T13:45:00"),
     user: mockUsers.find(u => u.id === "user-2")!,
@@ -283,7 +307,9 @@ export const mockCampusCommunityPosts: Post[] = [
   {
     id: "post-cc-3",
     userId: "user-5",
+    title: "New Photography Club",
     content: "I'm starting a photography club. First meeting is next week. All skill levels welcome!",
+    channelType: "CampusCommunity",
     imageUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32",
     createdAt: new Date("2023-09-13T11:15:00"),
     updatedAt: new Date("2023-09-13T11:15:00"),
@@ -294,7 +320,9 @@ export const mockCampusCommunityPosts: Post[] = [
   {
     id: "post-cc-4",
     userId: "user-1",
+    title: "Affordable Textbooks?",
     content: "Anyone know where I can find affordable textbooks? The campus bookstore prices are outrageous.",
+    channelType: "CampusCommunity",
     createdAt: new Date("2023-09-12T15:20:00"),
     updatedAt: new Date("2023-09-12T15:20:00"),
     user: mockUsers.find(u => u.id === "user-1")!,
@@ -304,7 +332,9 @@ export const mockCampusCommunityPosts: Post[] = [
   {
     id: "post-cc-5",
     userId: "user-2",
+    title: "Roommate for Next Semester",
     content: "I'm looking for a roommate for next semester. Clean, quiet, engineering student.",
+    channelType: "CampusCommunity",
     createdAt: new Date("2023-09-11T08:10:00"),
     updatedAt: new Date("2023-09-11T08:10:00"),
     user: mockUsers.find(u => u.id === "user-2")!,
@@ -313,12 +343,14 @@ export const mockCampusCommunityPosts: Post[] = [
   }
 ];
 
-// Mock Posts for Community (All Schools)
+// Mock Posts for Community (All Schools) - no reactions or comments
 export const mockCommunityPosts: Post[] = [
   {
     id: "post-com-1",
     userId: "user-3",
+    title: "New York Travel Tips",
     content: "Traveling to New York for a conference next month. Any recommendations on what to see?",
+    channelType: "Community",
     createdAt: new Date("2023-09-15T08:30:00"),
     updatedAt: new Date("2023-09-15T08:30:00"),
     user: mockUsers.find(u => u.id === "user-3")!,
@@ -328,7 +360,9 @@ export const mockCommunityPosts: Post[] = [
   {
     id: "post-com-2",
     userId: "user-4",
+    title: "Tech Internship Opportunities",
     content: "Looking for internship opportunities in tech. Anyone have connections at Google or Apple?",
+    channelType: "Community",
     createdAt: new Date("2023-09-14T12:45:00"),
     updatedAt: new Date("2023-09-14T12:45:00"),
     user: mockUsers.find(u => u.id === "user-4")!,
@@ -338,7 +372,9 @@ export const mockCommunityPosts: Post[] = [
   {
     id: "post-com-3",
     userId: "user-1",
+    title: "Weekend Basketball Games",
     content: "Any basketball players looking for pickup games on weekends? We play at the rec center.",
+    channelType: "Community",
     createdAt: new Date("2023-09-13T10:15:00"),
     updatedAt: new Date("2023-09-13T10:15:00"),
     user: mockUsers.find(u => u.id === "user-1")!,
@@ -348,7 +384,9 @@ export const mockCommunityPosts: Post[] = [
   {
     id: "post-com-4",
     userId: "user-5",
+    title: "Sustainable Energy Research Survey",
     content: "I'm working on a research project about sustainable energy. Looking for participants for a survey.",
+    channelType: "Community",
     createdAt: new Date("2023-09-12T14:20:00"),
     updatedAt: new Date("2023-09-12T14:20:00"),
     user: mockUsers.find(u => u.id === "user-5")!,
@@ -358,7 +396,9 @@ export const mockCommunityPosts: Post[] = [
   {
     id: "post-com-5",
     userId: "user-2",
+    title: "GRE Study Tips",
     content: "Has anyone taken the GRE recently? Looking for study tips and resources.",
+    channelType: "Community",
     createdAt: new Date("2023-09-11T07:10:00"),
     updatedAt: new Date("2023-09-11T07:10:00"),
     user: mockUsers.find(u => u.id === "user-2")!,

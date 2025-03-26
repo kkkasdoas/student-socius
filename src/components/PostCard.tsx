@@ -73,6 +73,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
     return timeAgo;
   };
   
+  // Determine if reactions and comments should be shown
+  const showInteractions = channelType === 'CampusGeneral' || channelType === 'Forum';
+  
   return (
     <div 
       className="bg-white w-full overflow-hidden border-b border-gray-200"
@@ -115,6 +118,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
         </button>
       </div>
       
+      {/* Post Title */}
+      <div className="px-4 pb-2">
+        <h2 className="text-lg font-semibold text-gray-900">{post.title}</h2>
+      </div>
+      
       {/* Post Content */}
       <div className="px-4 pb-3">
         <p className="text-sm text-gray-800 whitespace-pre-line">{post.content}</p>
@@ -132,41 +140,43 @@ const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
         </div>
       )}
       
-      {/* Simplified Post Stats & Actions */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex gap-6">
-          <div className="flex items-center gap-1.5">
-            <button 
-              className={`flex items-center justify-center ${liked ? 'text-cendy-primary' : 'text-gray-600'}`}
-              onClick={handleLike}
-            >
-              <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
-            </button>
-            {likesCount > 0 && (
-              <span className="text-sm text-gray-600 font-medium">{likesCount}</span>
-            )}
+      {/* Post Stats & Actions - Only shown for CampusGeneral and Forum */}
+      {showInteractions && (
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex gap-6">
+            <div className="flex items-center gap-1.5">
+              <button 
+                className={`flex items-center justify-center ${liked ? 'text-cendy-primary' : 'text-gray-600'}`}
+                onClick={handleLike}
+              >
+                <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
+              </button>
+              {likesCount > 0 && (
+                <span className="text-sm text-gray-600 font-medium">{likesCount}</span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-1.5">
+              <button 
+                className="flex items-center justify-center text-gray-600"
+                onClick={handleComment}
+              >
+                <MessageCircle className="w-5 h-5" />
+              </button>
+              {post.comments?.length > 0 && (
+                <span className="text-sm text-gray-600 font-medium">{post.comments.length}</span>
+              )}
+            </div>
           </div>
           
-          <div className="flex items-center gap-1.5">
-            <button 
-              className="flex items-center justify-center text-gray-600"
-              onClick={handleComment}
-            >
-              <MessageCircle className="w-5 h-5" />
-            </button>
-            {post.comments?.length > 0 && (
-              <span className="text-sm text-gray-600 font-medium">{post.comments.length}</span>
-            )}
-          </div>
+          <button 
+            className="p-1 text-gray-500 rounded-md hover:bg-gray-50 transition-colors"
+            onClick={handleShare}
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
         </div>
-        
-        <button 
-          className="p-1 text-gray-500 rounded-md hover:bg-gray-50 transition-colors"
-          onClick={handleShare}
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
-      </div>
+      )}
     </div>
   );
 };

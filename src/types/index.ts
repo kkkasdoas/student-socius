@@ -18,8 +18,10 @@ export type User = {
 export type Post = {
   id: string;
   userId: string;
+  title: string;
   content: string;
   imageUrl?: string;
+  channelType: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
   createdAt: Date;
   updatedAt: Date;

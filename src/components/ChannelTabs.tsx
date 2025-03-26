@@ -6,11 +6,13 @@ import {
   mockCampusGeneralPosts, 
   mockForumPosts, 
   mockCampusCommunityPosts, 
-  mockCommunityPosts 
+  mockCommunityPosts,
+  getPostsByUniversity
 } from '@/utils/mockData';
 import PostCard from './PostCard';
 import { Search, Filter, ChevronDown } from 'lucide-react';
-import { 
+import { useAuth } from '@/contexts/AuthContext';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,17 +34,28 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
   const [filterOption, setFilterOption] = useState<FilterOption>('Hot');
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const { currentUser } = useAuth();
   
-  // Get posts based on active channel
+  // Get posts based on active channel and user's university
   const getPosts = (): Post[] => {
+    const userUniversity = currentUser?.university || university;
+    
     switch (activeChannel) {
       case 'CampusGeneral':
-        return mockCampusGeneralPosts;
+        // Only show posts from the user's university for Campus General
+        return mockCampusGeneralPosts.filter(post => 
+          post.user.university === userUniversity
+        );
       case 'Forum':
+        // Forum shows posts from all universities
         return mockForumPosts;
       case 'CampusCommunity':
-        return mockCampusCommunityPosts;
+        // Only show posts from the user's university for Campus Community
+        return mockCampusCommunityPosts.filter(post => 
+          post.user.university === userUniversity
+        );
       case 'Community':
+        // Community shows posts from all universities
         return mockCommunityPosts;
       default:
         return [];
@@ -53,7 +66,8 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
   const filteredPosts = getPosts().filter(post => {
     // Search filter
     if (searchQuery) {
-      return post.content.toLowerCase().includes(searchQuery.toLowerCase());
+      return post.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
+             post.title.toLowerCase().includes(searchQuery.toLowerCase());
     }
     
     // Category filter for Campus General and Forum
