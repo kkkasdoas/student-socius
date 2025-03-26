@@ -16,7 +16,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
   const [likesCount, setLikesCount] = useState(post.reactions?.length || 0);
   
   const handlePostClick = () => {
-    if (channelType === 'CampusGeneral' || channelType === 'Forum') {
+    if (post.chatroomId) {
+      navigate(`/chatroom/${post.chatroomId}`);
+    } else if (channelType === 'CampusGeneral' || channelType === 'Forum') {
       navigate(`/chatroom/${post.id}`);
     } else {
       navigate(`/messages/${post.userId}`);
@@ -96,15 +98,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
           )}
         </div>
         <div className="ml-3 flex-1">
-          <p className="font-medium text-sm text-gray-800">{post.user.displayName}</p>
-          <div className="flex items-center text-xs text-gray-500">
-            <span>{formatTimeAgo(new Date(post.createdAt))}</span>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm text-gray-800">{post.user.displayName}</p>
+            <span className="text-xs text-gray-500">{formatTimeAgo(new Date(post.createdAt))}</span>
+          </div>
+          <div className="flex items-center text-xs">
             {post.category && (
-              <>
-                <span className="mx-1">•</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{post.category}</span>
-              </>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 mr-2">{post.category}</span>
             )}
+            <span className="text-gray-500">{post.user.university || post.user.login_name}</span>
           </div>
         </div>
         <button 

@@ -1,5 +1,4 @@
-
-import { User, Post, Comment, Reaction, Message, ChatRoom } from "@/types";
+import { User, Post, Comment, Reaction, Message, ChatRoom, ChatroomMessage } from "@/types";
 
 // Mock Universities
 const universities = [
@@ -13,6 +12,7 @@ export const mockUsers: User[] = [
   {
     id: "user-1",
     displayName: "Alex Johnson",
+    login_name: "Alex Wang",
     bio: "Computer Science Major. Coffee addict.",
     university: "TDTU University",
     verificationStatus: "verified",
@@ -27,6 +27,7 @@ export const mockUsers: User[] = [
   {
     id: "user-2",
     displayName: "Emma Williams",
+    login_name: "Emma Parker",
     bio: "Psychology student. Love reading and hiking.",
     university: "TDTU University",
     verificationStatus: "verified",
@@ -41,6 +42,7 @@ export const mockUsers: User[] = [
   {
     id: "user-3",
     displayName: "Michael Brown",
+    login_name: "Michael Lee",
     bio: "Business major. Basketball team captain.",
     university: "Harvard University",
     verificationStatus: "verified",
@@ -55,6 +57,7 @@ export const mockUsers: User[] = [
   {
     id: "user-4",
     displayName: "Sophia Garcia",
+    login_name: "Sophia Kim",
     bio: "Art history major. Amateur photographer.",
     university: "Stanford University",
     verificationStatus: "verified",
@@ -69,6 +72,7 @@ export const mockUsers: User[] = [
   {
     id: "user-5",
     displayName: "James Wilson",
+    login_name: "James Chen",
     bio: "Engineering student. Robotics enthusiast.",
     university: "TDTU University",
     verificationStatus: "verified",
@@ -83,6 +87,7 @@ export const mockUsers: User[] = [
   {
     id: "user-6",
     displayName: "AppleUser123",
+    login_name: "John Doe",
     bio: "",
     verificationStatus: "unverified",
     profilePictureUrl: "https://i.pravatar.cc/150?img=10",
@@ -137,13 +142,60 @@ const createMockComments = (postId: string, count: number): Comment[] => {
   });
 };
 
-// Mock Posts for Campus General (TDTU)
+// Create mock chatroom messages
+const createMockChatroomMessages = (chatroomId: string, count: number, initialPost?: Post): ChatroomMessage[] => {
+  const messages: ChatroomMessage[] = [];
+  
+  // Add the initial post as the first message if provided
+  if (initialPost) {
+    messages.push({
+      id: `cr-msg-${chatroomId}-post`,
+      chatroomId,
+      senderId: initialPost.userId,
+      content: initialPost.content,
+      createdAt: initialPost.createdAt,
+      sender: initialPost.user
+    });
+  }
+  
+  // Add additional random messages
+  const messageContents = [
+    "I have the same question!",
+    "I took that class last semester, it was great.",
+    "Has anyone found good study materials for this?",
+    "I'm also interested in this topic.",
+    "Thanks for starting this discussion.",
+    "Can we organize a study group?",
+    "I disagree with the previous point because...",
+    "This has been really helpful, thanks everyone!",
+    "Does anyone know when the next session is?",
+    "I found a great resource for this: check out this link..."
+  ];
+  
+  for (let i = 0; i < count; i++) {
+    const user = mockUsers[Math.floor(Math.random() * mockUsers.length)];
+    messages.push({
+      id: `cr-msg-${chatroomId}-${i}`,
+      chatroomId,
+      senderId: user.id,
+      content: messageContents[Math.floor(Math.random() * messageContents.length)],
+      createdAt: new Date(Date.now() - Math.random() * 10000000),
+      sender: user
+    });
+  }
+  
+  // Sort by date
+  return messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+};
+
+// Mock Posts for Campus General (TDTU) with chatroomId
 export const mockCampusGeneralPosts: Post[] = [
   {
     id: "post-cg-1",
     userId: "user-1",
     title: "Question about Economics Class",
     content: "Has anyone taken Professor Smith's Economics class? I've heard it's challenging but rewarding.",
+    chatroomId: "chatroom-1",
     channelType: "CampusGeneral",
     category: "Study",
     createdAt: new Date("2023-09-15T10:30:00"),
@@ -157,8 +209,9 @@ export const mockCampusGeneralPosts: Post[] = [
     userId: "user-2",
     title: "Library Renovation Completed!",
     content: "The campus library just got renovated and it looks amazing! Extra study spaces and better lighting.",
-    channelType: "CampusGeneral",
+    chatroomId: "chatroom-3",
     imageUrl: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f",
+    channelType: "CampusGeneral",
     category: "Fun",
     createdAt: new Date("2023-09-14T14:45:00"),
     updatedAt: new Date("2023-09-14T14:45:00"),
@@ -171,6 +224,7 @@ export const mockCampusGeneralPosts: Post[] = [
     userId: "user-5",
     title: "Cafeteria Drama Today",
     content: "Did anyone else see the drama in the cafeteria today? Someone spilled their entire lunch tray on the Dean!",
+    chatroomId: "chatroom-4",
     channelType: "CampusGeneral",
     category: "Drama",
     createdAt: new Date("2023-09-13T12:15:00"),
@@ -184,6 +238,7 @@ export const mockCampusGeneralPosts: Post[] = [
     userId: "user-1",
     title: "Calculus III Study Group",
     content: "Study group for Calculus III forming. We meet twice a week at the library. DM if interested!",
+    chatroomId: "chatroom-5",
     channelType: "CampusGeneral",
     category: "Study",
     createdAt: new Date("2023-09-12T16:20:00"),
@@ -197,6 +252,7 @@ export const mockCampusGeneralPosts: Post[] = [
     userId: "user-2",
     title: "Biology Midterm Postponed",
     content: "Just found out our midterm for Biology is postponed! Now we have an extra week to prepare.",
+    chatroomId: "chatroom-6",
     channelType: "CampusGeneral",
     category: "Study",
     createdAt: new Date("2023-09-11T09:10:00"),
@@ -207,13 +263,14 @@ export const mockCampusGeneralPosts: Post[] = [
   }
 ];
 
-// Mock Posts for Forum (All Schools)
+// Mock Posts for Forum (All Schools) with chatroomId
 export const mockForumPosts: Post[] = [
   {
     id: "post-forum-1",
     userId: "user-3",
     title: "Best Study Techniques?",
     content: "What are the best study techniques that actually work for you? I'm trying to improve my focus and retention.",
+    chatroomId: "chatroom-2",
     channelType: "Forum",
     category: "Study",
     createdAt: new Date("2023-09-15T11:30:00"),
@@ -227,6 +284,7 @@ export const mockForumPosts: Post[] = [
     userId: "user-4",
     title: "New Coffee Shop Review",
     content: "Has anyone tried the new coffee shop that opened near campus? Their cold brew is amazing!",
+    chatroomId: "chatroom-7",
     channelType: "Forum",
     imageUrl: "https://images.unsplash.com/photo-1541167760496-1628856ab772",
     category: "Fun",
@@ -241,6 +299,7 @@ export const mockForumPosts: Post[] = [
     userId: "user-1",
     title: "Too Much Homework This Semester",
     content: "Anyone else feel like there's too much homework this semester? I'm struggling to keep up with everything.",
+    chatroomId: "chatroom-8",
     channelType: "Forum",
     category: "Drama",
     createdAt: new Date("2023-09-13T13:15:00"),
@@ -254,6 +313,7 @@ export const mockForumPosts: Post[] = [
     userId: "user-5",
     title: "Online Course Recommendations",
     content: "Looking for recommendations on the best online courses to supplement my studies. Any suggestions?",
+    chatroomId: "chatroom-9",
     channelType: "Forum",
     category: "Study",
     createdAt: new Date("2023-09-12T17:20:00"),
@@ -267,6 +327,7 @@ export const mockForumPosts: Post[] = [
     userId: "user-2",
     title: "Research Project Completed!",
     content: "Just finished my research project and it went so well! Feeling accomplished!",
+    chatroomId: "chatroom-10",
     channelType: "Forum",
     imageUrl: "https://images.unsplash.com/photo-1513135065346-a098a63a71ee",
     category: "Fun",
@@ -407,7 +468,7 @@ export const mockCommunityPosts: Post[] = [
   }
 ];
 
-// Mock Messages
+// Mock Messages for direct messaging
 export const mockMessages: Message[] = [
   {
     id: "msg-1",
@@ -471,7 +532,7 @@ export const mockMessages: Message[] = [
   }
 ];
 
-// Mock ChatRooms
+// Mock ChatRooms with connections to posts
 export const mockChatRooms: ChatRoom[] = [
   {
     id: "chatroom-1",
@@ -481,105 +542,42 @@ export const mockChatRooms: ChatRoom[] = [
       mockUsers.find(u => u.id === "user-2")!,
       mockUsers.find(u => u.id === "user-5")!
     ],
-    messages: [
-      {
-        id: "cr-msg-1",
-        senderId: "user-1",
-        receiverId: "chatroom-1",
-        content: "Has anyone gotten their grades back for the economics midterm?",
-        createdAt: new Date("2023-09-14T15:30:00"),
-        isRead: true,
-        sender: mockUsers.find(u => u.id === "user-1")!,
-        receiver: mockUsers.find(u => u.id === "user-2")!
-      },
-      {
-        id: "cr-msg-2",
-        senderId: "user-2",
-        receiverId: "chatroom-1",
-        content: "Not yet, but Professor Smith said they should be posted by tomorrow.",
-        createdAt: new Date("2023-09-14T15:35:00"),
-        isRead: true,
-        sender: mockUsers.find(u => u.id === "user-2")!,
-        receiver: mockUsers.find(u => u.id === "user-1")!
-      },
-      {
-        id: "cr-msg-3",
-        senderId: "user-5",
-        receiverId: "chatroom-1",
-        content: "I'm so nervous! That test was really tough.",
-        createdAt: new Date("2023-09-14T15:40:00"),
-        isRead: true,
-        sender: mockUsers.find(u => u.id === "user-5")!,
-        receiver: mockUsers.find(u => u.id === "user-1")!
-      }
-    ],
-    lastMessage: {
-      id: "cr-msg-3",
-      senderId: "user-5",
-      receiverId: "chatroom-1",
-      content: "I'm so nervous! That test was really tough.",
-      createdAt: new Date("2023-09-14T15:40:00"),
-      isRead: true,
-      sender: mockUsers.find(u => u.id === "user-5")!,
-      receiver: mockUsers.find(u => u.id === "user-1")!
-    },
+    messages: createMockChatroomMessages("chatroom-1", 5, mockCampusGeneralPosts.find(p => p.id === "post-cg-1")),
     createdAt: new Date("2023-09-14T15:30:00"),
     updatedAt: new Date("2023-09-14T15:40:00")
   },
   {
     id: "chatroom-2",
-    postId: "post-forum-2",
+    postId: "post-forum-1",
     participants: [
-      mockUsers.find(u => u.id === "user-4")!,
+      mockUsers.find(u => u.id === "user-3")!,
       mockUsers.find(u => u.id === "user-1")!,
-      mockUsers.find(u => u.id === "user-3")!
+      mockUsers.find(u => u.id === "user-4")!
     ],
-    messages: [
-      {
-        id: "cr-msg-4",
-        senderId: "user-1",
-        receiverId: "chatroom-2",
-        content: "That coffee shop looks amazing! Where exactly is it located?",
-        createdAt: new Date("2023-09-15T10:30:00"),
-        isRead: true,
-        sender: mockUsers.find(u => u.id === "user-1")!,
-        receiver: mockUsers.find(u => u.id === "user-4")!
-      },
-      {
-        id: "cr-msg-5",
-        senderId: "user-4",
-        receiverId: "chatroom-2",
-        content: "It's on Oak Street, just two blocks from the science building. They have student discounts on Mondays!",
-        createdAt: new Date("2023-09-15T10:35:00"),
-        isRead: true,
-        sender: mockUsers.find(u => u.id === "user-4")!,
-        receiver: mockUsers.find(u => u.id === "user-1")!
-      },
-      {
-        id: "cr-msg-6",
-        senderId: "user-3",
-        receiverId: "chatroom-2",
-        content: "Do they have good study spaces too? I'm always looking for new places to work.",
-        createdAt: new Date("2023-09-15T10:40:00"),
-        isRead: false,
-        sender: mockUsers.find(u => u.id === "user-3")!,
-        receiver: mockUsers.find(u => u.id === "user-4")!
-      }
-    ],
-    lastMessage: {
-      id: "cr-msg-6",
-      senderId: "user-3",
-      receiverId: "chatroom-2",
-      content: "Do they have good study spaces too? I'm always looking for new places to work.",
-      createdAt: new Date("2023-09-15T10:40:00"),
-      isRead: false,
-      sender: mockUsers.find(u => u.id === "user-3")!,
-      receiver: mockUsers.find(u => u.id === "user-4")!
-    },
+    messages: createMockChatroomMessages("chatroom-2", 8, mockForumPosts.find(p => p.id === "post-forum-1")),
     createdAt: new Date("2023-09-15T10:30:00"),
     updatedAt: new Date("2023-09-15T10:40:00")
+  },
+  {
+    id: "chatroom-3",
+    postId: "post-cg-2",
+    participants: [
+      mockUsers.find(u => u.id === "user-2")!,
+      mockUsers.find(u => u.id === "user-1")!,
+      mockUsers.find(u => u.id === "user-5")!
+    ],
+    messages: createMockChatroomMessages("chatroom-3", 4, mockCampusGeneralPosts.find(p => p.id === "post-cg-2")),
+    createdAt: new Date("2023-09-14T14:45:00"),
+    updatedAt: new Date("2023-09-14T16:30:00")
   }
 ];
+
+// Set the lastMessage property for each chatroom
+mockChatRooms.forEach(room => {
+  if (room.messages.length > 0) {
+    room.lastMessage = room.messages[room.messages.length - 1];
+  }
+});
 
 // Helper function to get posts by university
 export const getPostsByUniversity = (university: string, channelType: 'CampusGeneral' | 'CampusCommunity') => {

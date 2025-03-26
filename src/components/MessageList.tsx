@@ -1,54 +1,185 @@
 
-import React, { useState } from 'react';
-import { Message, ChatRoom } from '@/types';
+import React from 'react';
+import { ChatRoom, Message, User } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Search, Plus } from 'lucide-react';
-import { mockChatRooms } from '@/utils/mockData';
+import { Plus } from 'lucide-react';
+import { mockChatRooms, mockUsers, mockMessages } from '@/utils/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 
-const MessageList: React.FC = () => {
+interface MessageListProps {
+  searchQuery?: string;
+}
+
+const MessageList: React.FC<MessageListProps> = ({ searchQuery = '' }) => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { currentUser } = useAuth();
   
-  // Filter chat rooms based on search query
-  const filteredChatRooms = mockChatRooms.filter(room => {
+  // Combine chatrooms and direct messages
+  const getCombinedConversations = () => {
+    if (!currentUser) return [];
+    
+    // Get chat rooms the current user is part of
+    const userChatRooms = mockChatRooms.filter(room => 
+      room.participants.some(p => p.id === currentUser.id)
+    );
+    
+    // Get direct message conversations
+    const directMessageUsers = new Map<string, { user: User, lastMessage: Message }>();
+    
+    // Find all unique users the current user has messaged with
+    mockMessages.forEach(msg => {
+      if (msg.senderId === currentUser.id || msg.receiverId === currentUser.id) {
+        const otherUserId = msg.senderId === currentUser.id ? msg.receiverId : msg.senderId;
+        
+        // If this user is not yet in our map or this message is newer than what we have
+        if (!directMessageUsers.has(otherUserId) || 
+            new Date(msg.createdAt) > new Date(directMessageUsers.get(otherUserId)!.lastMessage.createdAt)) {
+          directMessageUsers.set(otherUserId, {
+            user: msg.senderId === currentUser.id ? msg.receiver : msg.sender,
+            lastMessage: msg
+          });
+        }
+      }
+    });
+    
+    // Convert direct message map to array
+    const directMessages = Array.from(directMessageUsers.values()).map(({ user, lastMessage }) => ({
+      type: 'direct' as const,
+      id: user.id,
+      user,
+      lastMessage,
+      updatedAt: lastMessage.createdAt
+    }));
+    
+    // Convert chat rooms to our unified format
+    const chatRoomConversations = userChatRooms.map(room => ({
+      type: 'chatroom' as const,
+      id: room.id,
+      name: room.name || room.participants.map(p => p.displayName).join(', '),
+      participants: room.participants,
+      lastMessage: room.lastMessage,
+      updatedAt: room.lastMessage?.createdAt || room.updatedAt
+    }));
+    
+    // Combine and sort by most recent message
+    return [...directMessages, ...chatRoomConversations].sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  };
+  
+  const combinedConversations = getCombinedConversations();
+  
+  // Filter conversations based on search query
+  const filteredConversations = combinedConversations.filter(convo => {
     if (!searchQuery) return true;
     
-    // Search by room name or participants' names
-    const roomName = room.name?.toLowerCase() || '';
-    const participantNames = room.participants.map(p => p.displayName.toLowerCase()).join(' ');
-    
-    return roomName.includes(searchQuery.toLowerCase()) || 
-           participantNames.includes(searchQuery.toLowerCase());
+    if (convo.type === 'direct') {
+      return convo.user.displayName.toLowerCase().includes(searchQuery.toLowerCase());
+    } else {
+      const participantNames = convo.participants.map(p => p.displayName.toLowerCase()).join(' ');
+      return convo.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+             participantNames.includes(searchQuery.toLowerCase());
+    }
   });
+  
+  const handleConversationClick = (conversation: typeof combinedConversations[0]) => {
+    if (conversation.type === 'direct') {
+      navigate(`/messages/${conversation.id}`);
+    } else {
+      navigate(`/chatroom/${conversation.id}`);
+    }
+  };
   
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-cendy-border bg-white">
-        <h1 className="text-xl font-semibold text-gray-800 mb-3">Messages</h1>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <input
-            type="text"
-            placeholder="Search messages..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cendy-primary/30 transition-all"
-          />
-        </div>
-      </div>
-      
-      {/* Chat rooms list */}
+      {/* Chat list */}
       <div className="flex-1 overflow-y-auto bg-cendy-bg">
-        {filteredChatRooms.length > 0 ? (
+        {filteredConversations.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {filteredChatRooms.map(room => (
-              <ChatRoomItem 
-                key={room.id} 
-                room={room} 
-                onClick={() => navigate(`/messages/${room.id}`)} 
-              />
+            {filteredConversations.map(conversation => (
+              <div 
+                key={`${conversation.type}-${conversation.id}`}
+                className="p-3 flex items-center bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+                onClick={() => handleConversationClick(conversation)}
+              >
+                {conversation.type === 'direct' ? (
+                  // Direct Message Item
+                  <>
+                    <div className="relative mr-3">
+                      <img 
+                        src={conversation.user.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
+                        alt={conversation.user.displayName} 
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                      {conversation.user.verificationStatus === 'verified' && (
+                        <div className="absolute bottom-0 right-0 bg-cendy-primary rounded-full w-4 h-4 flex items-center justify-center border-2 border-white">
+                          <span className="text-white text-[8px]">✓</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline">
+                        <h3 className="font-medium text-gray-800 truncate">{conversation.user.displayName}</h3>
+                        <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                          {formatDistanceToNow(new Date(conversation.lastMessage.createdAt), { addSuffix: false })}
+                        </span>
+                      </div>
+                      
+                      <p className="text-sm text-gray-500 truncate mt-1">
+                        {conversation.lastMessage.content}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  // Chatroom Item
+                  <>
+                    <div className="relative mr-3">
+                      {conversation.participants.length > 0 ? (
+                        <div className="relative">
+                          <img 
+                            src={conversation.participants[0].profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
+                            alt={conversation.name} 
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                          {conversation.participants.length > 1 && (
+                            <div className="absolute -bottom-1 -right-1 bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center border-2 border-white">
+                              <span className="text-xs text-gray-600">+{conversation.participants.length - 1}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-sm">🔄</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline">
+                        <h3 className="font-medium text-gray-800 truncate">{conversation.name}</h3>
+                        <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                          {conversation.lastMessage ? 
+                            formatDistanceToNow(new Date(conversation.lastMessage.createdAt), { addSuffix: false }) : 
+                            formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: false })}
+                        </span>
+                      </div>
+                      
+                      {conversation.lastMessage ? (
+                        <p className="text-sm text-gray-500 truncate mt-1">
+                          <span className="font-medium">{conversation.lastMessage.sender.displayName}: </span>
+                          {conversation.lastMessage.content}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic truncate mt-1">
+                          No messages yet
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -68,64 +199,8 @@ const MessageList: React.FC = () => {
           onClick={() => navigate('/new-message')}
         >
           <Plus className="w-5 h-5 mr-2" />
-          New Message
+          New Conversation
         </button>
-      </div>
-    </div>
-  );
-};
-
-interface ChatRoomItemProps {
-  room: ChatRoom;
-  onClick: () => void;
-}
-
-const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
-  // Get the last message
-  const lastMessage = room.lastMessage;
-  
-  // Get the other participants (in a real app, you'd filter out the current user)
-  const otherParticipants = room.participants.slice(0, 2);
-  
-  // Create display name based on participants or room name
-  const displayName = room.name || otherParticipants.map(p => p.displayName).join(', ');
-  
-  // Get profile picture
-  const profilePic = otherParticipants[0]?.profilePictureUrl || 'https://i.pravatar.cc/150?img=default';
-  
-  return (
-    <div 
-      className="p-3 flex items-center bg-white hover:bg-gray-50 transition-colors cursor-pointer"
-      onClick={onClick}
-    >
-      <div className="relative mr-3">
-        <img 
-          src={profilePic} 
-          alt={displayName} 
-          className="w-12 h-12 rounded-full object-cover"
-        />
-        {otherParticipants[0]?.verificationStatus === 'verified' && (
-          <div className="absolute bottom-0 right-0 bg-cendy-primary rounded-full w-4 h-4 flex items-center justify-center border-2 border-white">
-            <span className="text-white text-[8px]">✓</span>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-baseline">
-          <h3 className="font-medium text-gray-800 truncate">{displayName}</h3>
-          {lastMessage && (
-            <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
-              {formatDistanceToNow(new Date(lastMessage.createdAt), { addSuffix: false })}
-            </span>
-          )}
-        </div>
-        
-        {lastMessage && (
-          <p className="text-sm text-gray-500 truncate mt-1">
-            {lastMessage.content}
-          </p>
-        )}
       </div>
     </div>
   );

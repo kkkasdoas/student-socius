@@ -8,6 +8,7 @@ export type User = {
   profilePictureUrl?: string;
   authProvider: 'google' | 'microsoft' | 'apple';
   loginEmail?: string;
+  login_name?: string;
   lastLogin?: Date;
   blockStatus: boolean;
   isDeleted: boolean;
@@ -20,6 +21,7 @@ export type Post = {
   userId: string;
   title: string;
   content: string;
+  chatroomId?: string;
   imageUrl?: string;
   channelType: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
@@ -64,13 +66,22 @@ export type Message = {
   receiver: User;
 };
 
+export type ChatroomMessage = {
+  id: string;
+  chatroomId: string;
+  senderId: string;
+  content: string;
+  createdAt: Date;
+  sender: User;
+};
+
 export type ChatRoom = {
   id: string;
   postId?: string;
   name?: string;
   participants: User[];
-  messages: Message[];
-  lastMessage?: Message;
+  messages: ChatroomMessage[];
+  lastMessage?: ChatroomMessage;
   createdAt: Date;
   updatedAt: Date;
 };
