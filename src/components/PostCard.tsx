@@ -104,9 +104,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
           </div>
           <div className="flex items-center text-xs">
             {post.category && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 mr-2">{post.category}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{post.category}</span>
             )}
-            <span className="text-gray-500">{post.user.university || post.user.login_name}</span>
           </div>
         </div>
         <button 

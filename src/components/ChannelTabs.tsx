@@ -1,17 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Post, ChannelType, GenderFilter } from '@/types';
 import type { FilterOption } from '@/types';
 import { 
   mockCampusGeneralPosts, 
   mockForumPosts, 
   mockCampusCommunityPosts, 
-  mockCommunityPosts,
-  getPostsByUniversity
+  mockCommunityPosts
 } from '@/utils/mockData';
 import PostCard from './PostCard';
-import { Search, Filter, ChevronDown } from 'lucide-react';
+import { Search, Filter, ChevronDown, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Select,
   SelectContent,
@@ -30,36 +30,58 @@ interface ChannelTabsProps {
 }
 
 const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
+  const navigate = useNavigate();
   const [activeChannel, setActiveChannel] = useState<ChannelType>('CampusGeneral');
   const [filterOption, setFilterOption] = useState<FilterOption>('Hot');
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const { currentUser } = useAuth();
   
+  // Get the active channel from session storage on component mount
+  useEffect(() => {
+    const storedChannel = sessionStorage.getItem('selectedChannel') as ChannelType | null;
+    if (storedChannel) {
+      setActiveChannel(storedChannel);
+    }
+  }, []);
+  
   // Get posts based on active channel and user's university
   const getPosts = (): Post[] => {
     const userUniversity = currentUser?.university || university;
     
+    let posts: Post[] = [];
+    
+    // Fetch posts based on channel type and university
     switch (activeChannel) {
       case 'CampusGeneral':
-        // Only show posts from the user's university for Campus General
-        return mockCampusGeneralPosts.filter(post => 
-          post.user.university === userUniversity
+        // Filter posts for the user's university
+        posts = mockCampusGeneralPosts.filter(post => 
+          post.university === userUniversity && post.channelType === 'CampusGeneral'
         );
+        break;
       case 'Forum':
-        // Forum shows posts from all universities
-        return mockForumPosts;
-      case 'CampusCommunity':
-        // Only show posts from the user's university for Campus Community
-        return mockCampusCommunityPosts.filter(post => 
-          post.user.university === userUniversity
+        // Forum posts are for all universities
+        posts = mockForumPosts.filter(post => 
+          post.channelType === 'Forum'
         );
+        break;
+      case 'CampusCommunity':
+        // Filter posts for the user's university
+        posts = mockCampusCommunityPosts.filter(post => 
+          post.university === userUniversity && post.channelType === 'CampusCommunity'
+        );
+        break;
       case 'Community':
-        // Community shows posts from all universities
-        return mockCommunityPosts;
+        // Community posts are for all universities
+        posts = mockCommunityPosts.filter(post => 
+          post.channelType === 'Community'
+        );
+        break;
       default:
-        return [];
+        break;
     }
+    
+    return posts;
   };
   
   // Filter and sort posts
@@ -85,11 +107,16 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
     }
     return 0;
   });
-
-  // Get filter options based on channel type
-  const categoryOptions = (activeChannel === 'CampusGeneral' || activeChannel === 'Forum') 
-    ? ['Study', 'Fun', 'Drama'] 
-    : ['All', 'Male', 'Female', 'L', 'G', 'B', 'T'];
+  
+  // Handle navigating to create post page
+  const handleCreatePost = () => {
+    navigate('/create-post', { 
+      state: { 
+        channelType: activeChannel,
+        university: activeChannel === 'Forum' || activeChannel === 'Community' ? 'all' : currentUser?.university
+      }
+    });
+  };
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -97,7 +124,10 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
       <div className="flex flex-col bg-white border-b border-cendy-border shadow-sm">
         {/* Channel Selector */}
         <div className="p-3 flex items-center gap-2">
-          <Select value={activeChannel} onValueChange={(value) => setActiveChannel(value as ChannelType)}>
+          <Select value={activeChannel} onValueChange={(value) => {
+            setActiveChannel(value as ChannelType);
+            sessionStorage.setItem('selectedChannel', value);
+          }}>
             <SelectTrigger className="w-full bg-gray-100 rounded-xl shadow-none border-none h-12">
               <SelectValue placeholder="Select Channel" />
             </SelectTrigger>
@@ -108,6 +138,14 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
               <SelectItem value="Community">Community</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Create Post Button */}
+          <button 
+            onClick={handleCreatePost}
+            className="p-3 bg-cendy-primary text-white rounded-full"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
 
           <button className="p-3 bg-gray-100 rounded-full">
             <Search className="w-5 h-5 text-gray-500" />
@@ -218,7 +256,7 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
         ) : (
           <div className="flex flex-col items-center justify-center h-40 text-gray-500">
             <p>No posts found</p>
-            <button className="mt-2 text-cendy-primary text-sm">Create a post</button>
+            <button onClick={handleCreatePost} className="mt-2 text-cendy-primary text-sm">Create a post</button>
           </div>
         )}
       </div>

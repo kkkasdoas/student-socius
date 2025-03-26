@@ -8,11 +8,13 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // Pages
 import HomePage from "./pages/HomePage";
+import Feed from "./pages/Feed";
 import MessagesPage from "./pages/MessagesPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
 import ChatRoomPage from "./pages/ChatRoomPage";
 import DirectMessagePage from "./pages/DirectMessagePage";
+import CreatePostPage from "./pages/CreatePostPage";
 import NotFound from "./pages/NotFound";
 
 // Protected Route Component
@@ -60,10 +62,12 @@ const AppRoutes = () => {
     <Routes>
       {/* Protected Routes */}
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+      <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
       <Route path="/messages/:userId" element={<ProtectedRoute><DirectMessagePage /></ProtectedRoute>} />
       <Route path="/chatroom/:roomId" element={<ProtectedRoute><ChatRoomPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/create-post" element={<ProtectedRoute><CreatePostPage /></ProtectedRoute>} />
       
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />

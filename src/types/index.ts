@@ -21,6 +21,7 @@ export type Post = {
   userId: string;
   title: string;
   content: string;
+  university: string;
   chatroomId?: string;
   imageUrl?: string;
   channelType: ChannelType;
