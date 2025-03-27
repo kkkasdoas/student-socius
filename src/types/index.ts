@@ -23,6 +23,7 @@ export type Post = {
   content: string;
   university: string;
   chatroomId?: string;
+  chatroomName?: string;
   imageUrl?: string;
   channelType: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
@@ -30,7 +31,6 @@ export type Post = {
   updatedAt: Date;
   user: User;
   reactions: Reaction[];
-  comments: Comment[];
 };
 
 export type Comment = {
@@ -79,7 +79,8 @@ export type ChatroomMessage = {
 export type ChatRoom = {
   id: string;
   postId?: string;
-  name?: string;
+  chatroomName?: string;
+  chatroomPhoto?: string;
   participants: User[];
   messages: ChatroomMessage[];
   lastMessage?: ChatroomMessage;

@@ -1,95 +1,39 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { AuthProvider } from '@/contexts/AuthContext';
+import HomePage from '@/pages/HomePage';
+import Feed from '@/pages/Feed';
+import LoginPage from '@/pages/LoginPage';
+import NotFound from '@/pages/NotFound';
+import SettingsPage from '@/pages/SettingsPage';
+import MessagesPage from '@/pages/MessagesPage';
+import DirectMessagePage from '@/pages/DirectMessagePage';
+import ChatRoomPage from '@/pages/ChatRoomPage';
+import ChatroomInfoPage from '@/pages/ChatroomInfoPage';
+import CreatePostPage from '@/pages/CreatePostPage';
+import './App.css';
 
-// Pages
-import HomePage from "./pages/HomePage";
-import Feed from "./pages/Feed";
-import MessagesPage from "./pages/MessagesPage";
-import SettingsPage from "./pages/SettingsPage";
-import LoginPage from "./pages/LoginPage";
-import ChatRoomPage from "./pages/ChatRoomPage";
-import DirectMessagePage from "./pages/DirectMessagePage";
-import CreatePostPage from "./pages/CreatePostPage";
-import NotFound from "./pages/NotFound";
-
-// Protected Route Component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-white">
-        <div className="animate-pulse h-6 w-32 bg-gray-200 rounded-md"></div>
-      </div>
-    );
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-// Public Route Component (redirects to home if already logged in)
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-white">
-        <div className="animate-pulse h-6 w-32 bg-gray-200 rounded-md"></div>
-      </div>
-    );
-  }
-  
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-const queryClient = new QueryClient();
-
-const AppRoutes = () => {
+function App() {
   return (
-    <Routes>
-      {/* Protected Routes */}
-      <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-      <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
-      <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
-      <Route path="/messages/:userId" element={<ProtectedRoute><DirectMessagePage /></ProtectedRoute>} />
-      <Route path="/chatroom/:roomId" element={<ProtectedRoute><ChatRoomPage /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-      <Route path="/create-post" element={<ProtectedRoute><CreatePostPage /></ProtectedRoute>} />
-      
-      {/* Public Routes */}
-      <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-      
-      {/* Catch All */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+    <AuthProvider>
       <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/feed" element={<Feed />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
+          <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />
+          <Route path="/chatroom-info/:roomId" element={<ChatroomInfoPage />} />
+          <Route path="/create-post" element={<CreatePostPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster position="top-center" />
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </AuthProvider>
+  );
+}
 
 export default App;

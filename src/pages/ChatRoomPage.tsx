@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { mockChatRooms, mockCampusGeneralPosts, mockForumPosts } from '@/utils/mockData';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Send, Image, Paperclip } from 'lucide-react';
+import { ArrowLeft, Send, Image, Paperclip, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Post, ChatroomMessage } from '@/types';
 
@@ -71,15 +71,19 @@ const ChatRoomPage: React.FC = () => {
   };
   
   const getChatroomName = () => {
-    if (relatedPost) {
-      return relatedPost.title;
+    if (chatRoom && chatRoom.chatroomName) {
+      return chatRoom.chatroomName;
     }
     
-    if (chatRoom) {
-      return chatRoom.name || chatRoom.participants.map((p: any) => p.displayName).join(', ');
+    if (relatedPost) {
+      return relatedPost.chatroomName || relatedPost.title;
     }
     
     return 'Chat Room';
+  };
+
+  const handleViewChatroomInfo = () => {
+    navigate(`/chatroom-info/${roomId}`);
   };
   
   return (
@@ -102,6 +106,21 @@ const ChatRoomPage: React.FC = () => {
               {chatRoom?.participants?.length || 0} participants
             </p>
           </div>
+
+          <button 
+            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            onClick={handleViewChatroomInfo}
+          >
+            {chatRoom?.chatroomPhoto ? (
+              <img 
+                src={chatRoom.chatroomPhoto} 
+                alt="Chatroom" 
+                className="w-7 h-7 rounded-full object-cover"
+              />
+            ) : (
+              <Info className="w-5 h-5 text-gray-700" />
+            )}
+          </button>
         </div>
         
         {/* Post (if viewing a post's chat room) */}
@@ -127,7 +146,6 @@ const ChatRoomPage: React.FC = () => {
                         {relatedPost.category}
                       </span>
                     )}
-                    <span className="text-xs text-gray-500">{relatedPost.user.university}</span>
                   </div>
                 </div>
               </div>

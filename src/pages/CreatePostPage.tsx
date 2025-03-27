@@ -33,6 +33,10 @@ const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<'Study' | 'Fun' | 'Drama' | 'Other' | ''>('');
+  const [chatroomName, setChatroomName] = useState(
+    currentUser ? `${currentUser.displayName}'s chatroom` : 'New chatroom'
+  );
+  const [chatroomPhoto, setChatroomPhoto] = useState(currentUser?.profilePictureUrl || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleCancel = () => {
@@ -51,8 +55,13 @@ const CreatePostPage: React.FC = () => {
       return;
     }
     
-    if ((channelType === 'CampusGeneral' || channelType === 'Forum') && !category) {
+    if (!category) {
       toast.error('Please select a category for your post');
+      return;
+    }
+    
+    if (!chatroomName.trim()) {
+      toast.error('Please enter a name for the chatroom');
       return;
     }
     
@@ -65,9 +74,6 @@ const CreatePostPage: React.FC = () => {
       navigate('/feed');
     }, 1000);
   };
-  
-  // Determine if category selection is needed based on channel type
-  const needsCategory = channelType === 'CampusGeneral' || channelType === 'Forum';
   
   return (
     <Layout hideNav>
@@ -88,7 +94,7 @@ const CreatePostPage: React.FC = () => {
           
           <button 
             onClick={handleSubmit}
-            disabled={isSubmitting || !title || !content || (needsCategory && !category)}
+            disabled={isSubmitting || !title || !content || !category || !chatroomName}
             className="px-4 py-1.5 bg-cendy-primary text-white rounded-full text-sm font-medium disabled:opacity-50"
           >
             {isSubmitting ? 'Posting...' : 'Post'}
@@ -118,23 +124,54 @@ const CreatePostPage: React.FC = () => {
             />
           </div>
           
-          {/* Category (only for Campus General and Forum) */}
-          {needsCategory && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Category</h3>
-              <Select value={category} onValueChange={(value) => setCategory(value as any)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Study">Study</SelectItem>
-                  <SelectItem value="Fun">Fun</SelectItem>
-                  <SelectItem value="Drama">Drama</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Category */}
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Category</h3>
+            <Select value={category} onValueChange={(value) => setCategory(value as any)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Study">Study</SelectItem>
+                <SelectItem value="Fun">Fun</SelectItem>
+                <SelectItem value="Drama">Drama</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Chatroom Name */}
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Chatroom Name</h3>
+            <input 
+              type="text"
+              placeholder="Enter chatroom name"
+              value={chatroomName}
+              onChange={(e) => setChatroomName(e.target.value)}
+              className="w-full p-3 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-cendy-primary/30"
+            />
+          </div>
+          
+          {/* Chatroom Photo */}
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Chatroom Photo URL (optional)</h3>
+            <input 
+              type="text"
+              placeholder="Enter photo URL"
+              value={chatroomPhoto}
+              onChange={(e) => setChatroomPhoto(e.target.value)}
+              className="w-full p-3 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-cendy-primary/30"
+            />
+            {chatroomPhoto && (
+              <div className="mt-2 flex justify-center">
+                <img 
+                  src={chatroomPhoto} 
+                  alt="Chatroom" 
+                  className="w-16 h-16 rounded-full object-cover border"
+                />
+              </div>
+            )}
+          </div>
           
           {/* Info about where this post will be visible */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
