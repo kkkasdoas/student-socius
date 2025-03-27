@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChannelType } from '@/types';
+import { ChannelType, ConversationType } from '@/types';
 import {
   Select,
   SelectContent,
@@ -91,24 +91,24 @@ const CreatePostPage: React.FC = () => {
     try {
       setIsPosting(true);
       
-      // In a real app, we would send this data to the server
+      // In a real app, this would be a transaction in the database
       // Here, we'll just simulate a delay and redirect
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Generate a unique ID for the post
       const postId = `post-${Date.now()}`;
       
-      // Generate a unique ID for the chatroom
-      const chatroomId = `chatroom-${Date.now()}`;
+      // Generate a unique ID for the conversation
+      const conversationId = `conv-${Date.now()}`;
 
+      // Step 1: Insert into posts table
       console.log('Creating post:', {
         id: postId,
         userId: currentUser?.id,
         title,
         content,
         university: channelType === 'Forum' || channelType === 'Community' ? 'all' : currentUser?.university,
-        chatroomId,
-        chatroomName,
+        conversationId,
         imageUrl: imagePreview ? imagePreview : undefined,
         channelType,
         category,
@@ -116,15 +116,24 @@ const CreatePostPage: React.FC = () => {
         updatedAt: new Date(),
       });
       
-      console.log('Creating chatroom:', {
-        id: chatroomId,
-        postId,
+      // Step 2: Insert into conversations table
+      console.log('Creating conversation:', {
+        id: conversationId,
+        type: 'chatroom' as ConversationType,
         chatroomName,
-        chatroomPhoto: currentUser?.profilePictureUrl,
-        participants: [currentUser],
-        messages: [],
+        photo: currentUser?.profilePictureUrl,
+        postId,
+        lastMessageContent: null,
+        lastMessageSenderId: null,
+        lastMessageTimestamp: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+      });
+      
+      // Step 3: Insert into conversation_participants table
+      console.log('Adding user to conversation:', {
+        conversationId,
+        userId: currentUser?.id
       });
       
       toast.success('Post created successfully!');

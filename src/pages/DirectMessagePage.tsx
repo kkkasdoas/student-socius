@@ -2,17 +2,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { mockUsers, mockMessages } from '@/utils/mockData';
+import { mockUsers } from '@/utils/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Send, Image, Smile, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Message } from '@/types';
 
 const DirectMessagePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [recipient, setRecipient] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -26,18 +27,38 @@ const DirectMessagePage: React.FC = () => {
       setRecipient(user);
     }
     
-    // Filter messages between current user and recipient
-    const relevantMessages = mockMessages.filter(
-      msg => (msg.senderId === currentUser.id && msg.receiverId === userId) || 
-             (msg.senderId === userId && msg.receiverId === currentUser.id)
-    );
+    // Create some mock messages for demo purposes
+    const mockMessages: Message[] = [
+      {
+        id: `msg-${Date.now()}-1`,
+        conversationId: `conv-${currentUser.id}-${userId}`,
+        senderId: currentUser.id,
+        content: "Hey there! How's it going?",
+        createdAt: new Date(Date.now() - 3600000 * 2), // 2 hours ago
+        isRead: true,
+        sender: currentUser
+      },
+      {
+        id: `msg-${Date.now()}-2`,
+        conversationId: `conv-${currentUser.id}-${userId}`,
+        senderId: userId,
+        content: "I'm doing well, thanks for asking!",
+        createdAt: new Date(Date.now() - 3600000), // 1 hour ago
+        isRead: true,
+        sender: user
+      },
+      {
+        id: `msg-${Date.now()}-3`,
+        conversationId: `conv-${currentUser.id}-${userId}`,
+        senderId: currentUser.id,
+        content: "Great to hear! What have you been up to lately?",
+        createdAt: new Date(Date.now() - 1800000), // 30 minutes ago
+        isRead: true,
+        sender: currentUser
+      }
+    ];
     
-    // Sort by date
-    const sortedMessages = [...relevantMessages].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-    
-    setMessages(sortedMessages);
+    setMessages(mockMessages);
   }, [userId, currentUser]);
   
   // Scroll to bottom of messages
@@ -48,15 +69,14 @@ const DirectMessagePage: React.FC = () => {
   const handleSend = () => {
     if (!message.trim() || !currentUser || !recipient) return;
     
-    const newMessage = {
+    const newMessage: Message = {
       id: `msg-${Date.now()}`,
+      conversationId: `conv-${currentUser.id}-${recipient.id}`,
       senderId: currentUser.id,
-      receiverId: recipient.id,
       content: message,
       createdAt: new Date(),
       isRead: false,
-      sender: currentUser,
-      receiver: recipient
+      sender: currentUser
     };
     
     setMessages([...messages, newMessage]);
@@ -122,8 +142,8 @@ const DirectMessagePage: React.FC = () => {
               >
                 {msg.senderId !== currentUser?.id && (
                   <img 
-                    src={msg.sender.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
-                    alt={msg.sender.displayName} 
+                    src={recipient.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
+                    alt={recipient.displayName} 
                     className="w-8 h-8 rounded-full object-cover mr-2 self-end"
                   />
                 )}

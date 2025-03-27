@@ -3,18 +3,16 @@ import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChatRoom, ChatroomMessage, Message } from '@/types';
+import { Conversation, Message, User } from '@/types';
 
 type MessageListProps = {
-  messages?: (Message | ChatroomMessage)[];
-  chatRoom?: ChatRoom;
-  isChatroom?: boolean;
+  messages?: Message[];
+  conversation?: Conversation;
 };
 
 const MessageList: React.FC<MessageListProps> = ({ 
   messages = [], 
-  chatRoom,
-  isChatroom = false 
+  conversation
 }) => {
   const { currentUser } = useAuth();
   
@@ -28,7 +26,7 @@ const MessageList: React.FC<MessageListProps> = ({
   }
 
   // Group messages by date
-  const groupedMessages: { [key: string]: (Message | ChatroomMessage)[] } = {};
+  const groupedMessages: { [key: string]: Message[] } = {};
   
   messages.forEach(message => {
     const date = new Date(message.createdAt).toDateString();
@@ -40,18 +38,18 @@ const MessageList: React.FC<MessageListProps> = ({
   
   return (
     <div className="flex flex-col space-y-6 p-4">
-      {chatRoom && (
+      {conversation && conversation.type === 'chatroom' && (
         <div className="flex flex-col items-center justify-center mb-4 text-center">
           <Avatar className="w-16 h-16 mb-2">
             <AvatarImage 
-              src={chatRoom.chatroomPhoto || "https://i.pravatar.cc/150?img=group"} 
-              alt={chatRoom.chatroomName} 
+              src={conversation.photo || "https://i.pravatar.cc/150?img=group"} 
+              alt={conversation.chatroomName} 
             />
-            <AvatarFallback>{chatRoom.chatroomName?.substring(0, 2).toUpperCase() || "CH"}</AvatarFallback>
+            <AvatarFallback>{conversation.chatroomName?.substring(0, 2).toUpperCase() || "CH"}</AvatarFallback>
           </Avatar>
-          <h2 className="text-xl font-semibold">{chatRoom.chatroomName || "Chat Room"}</h2>
+          <h2 className="text-xl font-semibold">{conversation.chatroomName || "Chat Room"}</h2>
           <p className="text-sm text-gray-500">
-            {chatRoom.participants.length} participants
+            {conversation.participants?.length || 0} participants
           </p>
         </div>
       )}
@@ -70,14 +68,10 @@ const MessageList: React.FC<MessageListProps> = ({
           
           {groupedMessages[date].map((message) => {
             // Determine if message is from current user
-            const isCurrentUser = isChatroom 
-              ? (message as ChatroomMessage).senderId === currentUser?.id 
-              : (message as Message).senderId === currentUser?.id;
+            const isCurrentUser = message.senderId === currentUser?.id;
             
             // Get sender for proper display
-            const sender = isChatroom 
-              ? (message as ChatroomMessage).sender 
-              : (message as Message).sender;
+            const sender = message.sender;
             
             return (
               <div 
@@ -85,18 +79,18 @@ const MessageList: React.FC<MessageListProps> = ({
                 className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`flex max-w-[75%] ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
-                  {!isCurrentUser && (
+                  {!isCurrentUser && sender && (
                     <Avatar className="w-8 h-8 mr-2">
                       <AvatarImage 
                         src={sender.profilePictureUrl || "https://i.pravatar.cc/150?img=default"} 
                         alt={sender.displayName} 
                       />
-                      <AvatarFallback>{sender.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{sender?.displayName.substring(0, 2).toUpperCase() || "UN"}</AvatarFallback>
                     </Avatar>
                   )}
                   
                   <div className={`flex flex-col ${isCurrentUser ? 'items-end mr-2' : 'items-start'}`}>
-                    {!isCurrentUser && (
+                    {!isCurrentUser && sender && (
                       <span className="text-xs text-gray-500 mb-1">{sender.displayName}</span>
                     )}
                     

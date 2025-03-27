@@ -25,43 +25,39 @@ const DirectMessagePage: React.FC = () => {
   const mockDirectMessages: Message[] = [
     {
       id: "msg-1",
+      conversationId: `conv-${currentUser?.id}-${userId}`,
       senderId: currentUser?.id || "",
-      receiverId: userId || "",
       content: "Hey, how are you doing?",
       createdAt: new Date(new Date().getTime() - 24 * 60 * 60 * 1000), // 1 day ago
       isRead: true,
-      sender: currentUser || mockUsers[0],
-      receiver: otherUser || mockUsers[1]
+      sender: currentUser || mockUsers[0]
     },
     {
       id: "msg-2",
+      conversationId: `conv-${currentUser?.id}-${userId}`,
       senderId: userId || "",
-      receiverId: currentUser?.id || "",
       content: "I'm good, thanks! How about you?",
       createdAt: new Date(new Date().getTime() - 23 * 60 * 60 * 1000), // 23 hours ago
       isRead: true,
-      sender: otherUser || mockUsers[1],
-      receiver: currentUser || mockUsers[0]
+      sender: otherUser || mockUsers[1]
     },
     {
       id: "msg-3",
+      conversationId: `conv-${currentUser?.id}-${userId}`,
       senderId: currentUser?.id || "",
-      receiverId: userId || "",
       content: "Doing well! Just working on some assignments.",
       createdAt: new Date(new Date().getTime() - 22 * 60 * 60 * 1000), // 22 hours ago
       isRead: true,
-      sender: currentUser || mockUsers[0],
-      receiver: otherUser || mockUsers[1]
+      sender: currentUser || mockUsers[0]
     },
     {
       id: "msg-4",
+      conversationId: `conv-${currentUser?.id}-${userId}`,
       senderId: userId || "",
-      receiverId: currentUser?.id || "",
       content: "Nice! Which class are you working on?",
       createdAt: new Date(new Date().getTime() - 30 * 60 * 1000), // 30 minutes ago
       isRead: true,
-      sender: otherUser || mockUsers[1],
-      receiver: currentUser || mockUsers[0]
+      sender: otherUser || mockUsers[1]
     }
   ];
   
@@ -141,8 +137,7 @@ const DirectMessagePage: React.FC = () => {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Type a message..."
-              className="min-h-[40px] max-h-[120px] pr-12 py-2 resize-none"
-              multiline="true"
+              className="min-h-[40px] max-h-[120px] pr-12 py-2"
             />
             
             <Button 

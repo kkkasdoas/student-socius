@@ -1,4 +1,3 @@
-
 export type User = {
   id: string;
   displayName: string;
@@ -22,8 +21,7 @@ export type Post = {
   title: string;
   content: string;
   university: string;
-  chatroomId?: string;
-  chatroomName?: string;
+  conversationId?: string;
   imageUrl?: string;
   channelType: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
@@ -56,17 +54,39 @@ export type FilterOption = 'Hot' | 'New' | 'Study' | 'Fun' | 'Drama' | 'All';
 
 export type GenderFilter = 'All' | 'Male' | 'Female' | 'L' | 'G' | 'B' | 'T';
 
+export type ConversationType = 'private' | 'chatroom';
+
+export type Conversation = {
+  id: string;
+  type: ConversationType;
+  chatroomName?: string;
+  photo?: string;
+  postId?: string;
+  lastMessageContent?: string;
+  lastMessageSenderId?: string;
+  lastMessageTimestamp?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  participants?: User[];
+};
+
+export type ConversationParticipant = {
+  conversationId: string;
+  userId: string;
+  user?: User;
+};
+
 export type Message = {
   id: string;
+  conversationId: string;
   senderId: string;
-  receiverId: string;
   content: string;
   createdAt: Date;
   isRead: boolean;
-  sender: User;
-  receiver: User;
+  sender?: User;
 };
 
+// Legacy types - these can be removed in a real app but keeping for backward compatibility during transition
 export type ChatroomMessage = {
   id: string;
   chatroomId: string;

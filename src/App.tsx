@@ -15,24 +15,33 @@ import CreatePostPage from '@/pages/CreatePostPage';
 import EditProfilePage from '@/pages/EditProfilePage';
 import './App.css';
 
+// Import Inter font
+import '@fontsource/inter/300.css';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/feed" element={<Feed />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/edit-profile" element={<EditProfilePage />} />
-          <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
-          <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />
-          <Route path="/chatroom-info/:roomId" element={<ChatroomInfoPage />} />
-          <Route path="/create-post" element={<CreatePostPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster position="top-center" />
+        <div className="font-inter">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/feed" element={<Feed />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/edit-profile" element={<EditProfilePage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
+            <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />
+            <Route path="/chatroom-info/:roomId" element={<ChatroomInfoPage />} />
+            <Route path="/create-post" element={<CreatePostPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster position="top-center" />
+        </div>
       </BrowserRouter>
     </AuthProvider>
   );
