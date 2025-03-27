@@ -13,6 +13,10 @@ import ChatRoomPage from '@/pages/ChatRoomPage';
 import ChatroomInfoPage from '@/pages/ChatroomInfoPage';
 import CreatePostPage from '@/pages/CreatePostPage';
 import EditProfilePage from '@/pages/EditProfilePage';
+import NotificationsSettingsPage from '@/pages/NotificationsSettingsPage';
+import LanguageSettingsPage from '@/pages/LanguageSettingsPage';
+import BlockedUsersPage from '@/pages/BlockedUsersPage';
+import UserProfilePage from '@/pages/UserProfilePage';
 import './App.css';
 
 // Import Inter font
@@ -32,12 +36,20 @@ function App() {
             <Route path="/feed" element={<Feed />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
+            <Route path="/settings/language" element={<LanguageSettingsPage />} />
+            <Route path="/settings/blocked-users" element={<BlockedUsersPage />} />
             <Route path="/edit-profile" element={<EditProfilePage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
             <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />
             <Route path="/chatroom-info/:roomId" element={<ChatroomInfoPage />} />
             <Route path="/create-post" element={<CreatePostPage />} />
+            <Route path="/user/:userId" element={<UserProfilePage />} />
+            <Route path="/faq" element={<NotFound />} />
+            <Route path="/contact" element={<NotFound />} />
+            <Route path="/privacy-policy" element={<NotFound />} />
+            <Route path="/terms" element={<NotFound />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster position="top-center" />

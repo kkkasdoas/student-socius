@@ -1,7 +1,7 @@
 
 import React from 'react';
 import Layout from '@/components/Layout';
-import SettingsScreen from '@/components/SettingsScreen';
+import SettingsScreen from '@/components/settings/SettingsScreen';
 
 const SettingsPage: React.FC = () => {
   return (

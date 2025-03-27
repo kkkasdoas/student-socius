@@ -86,7 +86,61 @@ export type Message = {
   sender?: User;
 };
 
-// Legacy types - these can be removed in a real app but keeping for backward compatibility during transition
+export type UserSettings = {
+  userId: string;
+  muteAllNotifications: boolean;
+  privateChatNotifications: boolean;
+  chatroomNotifications: boolean;
+  darkMode: boolean;
+  language: 'english' | 'vietnamese';
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BlockedUser = {
+  blockerId: string;
+  blockedId: string;
+};
+
+export type MutedUser = {
+  muterId: string;
+  mutedId: string;
+};
+
+export type SavedPost = {
+  userId: string;
+  postId: string;
+};
+
+export type HiddenPost = {
+  userId: string;
+  postId: string;
+};
+
+export type UserReport = {
+  id: string;
+  reporterId: string;
+  reportedId: string;
+  reason: string;
+  createdAt: Date;
+};
+
+export type PostReport = {
+  id: string;
+  reporterId: string;
+  postId: string;
+  reason: string;
+  createdAt: Date;
+};
+
+export type UserDevice = {
+  id: string;
+  userId: string;
+  deviceToken: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type ChatroomMessage = {
   id: string;
   chatroomId: string;
