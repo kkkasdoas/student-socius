@@ -1,183 +1,223 @@
-
-import React, { useState } from 'react';
-import { Post, ChannelType } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  ThumbsUp,
+  Heart,
+  Smile,
+  MessageCircle,
+  Share,
+  MoreVertical,
+  Bookmark,
+  Flag,
+  Facebook as FacebookIcon,
+  Twitter as TwitterIcon,
+  Linkedin as LinkedinIcon,
+  Link2 as Link2Icon,
+} from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from '@/contexts/AuthContext';
+import { Post, Reaction } from '@/types';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow, differenceInDays, format } from 'date-fns';
-import { Heart, MessageCircle, Share2, MoreHorizontal } from 'lucide-react';
 
-interface PostCardProps {
-  post: Post;
-  channelType: ChannelType;
-}
-
-const PostCard: React.FC<PostCardProps> = ({ post, channelType }) => {
+const PostCard: React.FC<{ post: Post }> = ({ post }) => {
+  const [reactionGroups, setReactionGroups] = useState({
+    like: 0,
+    heart: 0,
+    laugh: 0,
+    wow: 0,
+    sad: 0,
+    angry: 0,
+  });
+  const [userReactions, setUserReactions] = useState<Reaction[]>([]);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post.reactions?.length || 0);
-  
-  const handlePostClick = () => {
-    if (post.chatroomId) {
-      navigate(`/chatroom/${post.chatroomId}`);
-    } else if (channelType === 'CampusGeneral' || channelType === 'Forum') {
-      navigate(`/chatroom/${post.id}`);
-    } else {
-      navigate(`/messages/${post.userId}`);
-    }
-  };
-  
-  const handleLike = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (liked) {
-      setLiked(false);
-      setLikesCount(prev => prev - 1);
-    } else {
-      setLiked(true);
-      setLikesCount(prev => prev + 1);
-    }
-  };
-  
-  const handleComment = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    handlePostClick();
-  };
-  
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Share functionality would go here
+
+  useEffect(() => {
+    // Group reactions by type
+    const groupedReactions = post.reactions.reduce((acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    }, {
+      like: 0,
+      heart: 0,
+      laugh: 0,
+      wow: 0,
+      sad: 0,
+      angry: 0,
+    });
+    setReactionGroups(groupedReactions);
+
+    // Get user's reactions for this post
+    const userReactionsForPost = post.reactions.filter(reaction => reaction.userId === currentUser?.id);
+    setUserReactions(userReactionsForPost);
+  }, [post.reactions, currentUser?.id]);
+
+  const totalReactions = Object.values(reactionGroups).reduce((sum, count) => sum + count, 0);
+
+  const hasReacted = (type: string) => {
+    return userReactions.some(reaction => reaction.type === type);
   };
 
-  const formatTimeAgo = (date: Date) => {
-    const daysDifference = differenceInDays(new Date(), new Date(date));
-    
-    if (daysDifference > 30) {
-      return format(new Date(date), 'dd/MM/yyyy');
-    }
-    
-    const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: false });
-    
-    // Convert to short format
-    if (timeAgo.includes('second')) {
-      return timeAgo.replace(/\d+ seconds?/, match => `${match.split(' ')[0]}s`);
-    }
-    if (timeAgo.includes('minute')) {
-      return timeAgo.replace(/\d+ minutes?/, match => `${match.split(' ')[0]}m`);
-    }
-    if (timeAgo.includes('hour')) {
-      return timeAgo.replace(/\d+ hours?/, match => `${match.split(' ')[0]}h`);
-    }
-    if (timeAgo.includes('day')) {
-      return timeAgo.replace(/\d+ days?/, match => `${match.split(' ')[0]}d`);
-    }
-    if (timeAgo.includes('month')) {
-      return timeAgo.replace(/\d+ months?/, match => `${match.split(' ')[0]}mo`);
-    }
-    
-    return timeAgo;
+  const handleReaction = (type: string) => {
+    // In a real app, this would send the reaction to the server
+    console.log('Reacted with:', type);
   };
-  
-  // Determine if reactions and comments should be shown
-  const showInteractions = channelType === 'CampusGeneral' || channelType === 'Forum';
-  
+
+  // Format timestamp
+  const formattedTime = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
+
   return (
-    <div 
-      className="bg-white w-full overflow-hidden border-b border-gray-200"
-      onClick={handlePostClick}
-    >
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4">
       {/* Post Header */}
-      <div className="p-4 flex items-center">
-        <div className="relative">
-          <img 
-            src={post.user.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
-            alt={post.user.displayName} 
-            className="w-10 h-10 rounded-full object-cover border border-gray-200"
-          />
-          {post.user.verificationStatus === 'verified' && (
-            <div className="absolute bottom-0 right-0 bg-cendy-primary rounded-full w-4 h-4 flex items-center justify-center border-2 border-white">
-              <span className="text-white text-[8px]">✓</span>
-            </div>
-          )}
-        </div>
-        <div className="ml-3 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-sm text-gray-800">{post.user.displayName}</p>
-            <span className="text-xs text-gray-500">{formatTimeAgo(new Date(post.createdAt))}</span>
+      <div className="p-4 flex items-start">
+        <Avatar className="w-10 h-10 mr-3">
+          <AvatarImage src={post.user.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} alt={post.user.displayName} />
+          <AvatarFallback>{post.user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+        </Avatar>
+
+        <div className="flex-1">
+          <div className="flex items-center">
+            <h3 className="font-medium text-gray-900">{post.user.displayName}</h3>
+            <span className="text-gray-500 text-sm ml-2">{formattedTime}</span>
           </div>
-          <div className="flex items-center text-xs">
-            {post.category && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{post.category}</span>
+
+          <div className="mt-0.5 flex items-center text-xs text-gray-500">
+            <div className="flex items-center">
+              {post.category && (
+                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs mr-2">
+                  {post.category}
+                </span>
+              )}
+              <span>{post.university !== "all" ? post.university : "All Universities"}</span>
+            </div>
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="-mr-2">
+              <MoreVertical className="h-5 w-5 text-gray-500" />
+              <span className="sr-only">More options</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem>
+              <Bookmark className="mr-2 h-4 w-4" />
+              <span>Save post</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Share className="mr-2 h-4 w-4" />
+              <span>Share</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <Flag className="mr-2 h-4 w-4" />
+              <span>Report</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Post Title */}
+      <div
+        className="px-4 pb-2 text-lg font-semibold cursor-pointer hover:text-cendy-primary"
+        onClick={() => navigate(`/chatroom/${post.chatroomId}`)}
+      >
+        {post.title}
+      </div>
+
+      {/* Post Content */}
+      <div
+        className="px-4 pb-4 text-gray-700 cursor-pointer"
+        onClick={() => navigate(`/chatroom/${post.chatroomId}`)}
+      >
+        {post.content}
+      </div>
+
+      {/* Post Image (if available) */}
+      {post.imageUrl && (
+        <div
+          className="cursor-pointer"
+          onClick={() => navigate(`/chatroom/${post.chatroomId}`)}
+        >
+          <img src={post.imageUrl} alt="Post content" className="w-full h-auto max-h-[500px] object-cover" />
+        </div>
+      )}
+
+      {/* Reactions Section */}
+      <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+        <div className="flex items-center text-gray-500 text-sm">
+          <div className="flex -space-x-1 mr-2">
+            {reactionGroups.heart > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-500">
+                <Heart className="w-3 h-3 fill-current" />
+              </span>
+            )}
+            {reactionGroups.like > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-500">
+                <ThumbsUp className="w-3 h-3" />
+              </span>
+            )}
+            {reactionGroups.laugh > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-100 text-yellow-500">
+                <Smile className="w-3 h-3" />
+              </span>
             )}
           </div>
+          <span>
+            {totalReactions > 0 && (
+              <>{totalReactions} {totalReactions === 1 ? 'reaction' : 'reactions'}</>
+            )}
+          </span>
         </div>
-        <button 
-          className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            // More options menu would go here
-          }}
-        >
-          <MoreHorizontal className="w-5 h-5 text-gray-500" />
-        </button>
       </div>
-      
-      {/* Post Title */}
-      <div className="px-4 pb-2">
-        <h2 className="text-lg font-semibold text-gray-900">{post.title}</h2>
+
+      {/* Reaction Buttons */}
+      <div className="flex items-center justify-around px-4 py-2 border-t border-gray-100">
+        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => handleReaction('like')}>
+          <ThumbsUp className={`mr-1 h-4 w-4 ${hasReacted('like') ? 'text-blue-500 fill-blue-500' : ''}`} />
+          <span>Like</span>
+        </Button>
+        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => navigate(`/chatroom/${post.chatroomId}`)}>
+          <MessageCircle className="mr-1 h-4 w-4" />
+          <span>Chat</span>
+        </Button>
+        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => setShowShareSheet(true)}>
+          <Share className="mr-1 h-4 w-4" />
+          <span>Share</span>
+        </Button>
       </div>
-      
-      {/* Post Content */}
-      <div className="px-4 pb-3">
-        <p className="text-sm text-gray-800 whitespace-pre-line">{post.content}</p>
-      </div>
-      
-      {/* Post Image (if exists) */}
-      {post.imageUrl && (
-        <div className="w-full">
-          <img 
-            src={post.imageUrl} 
-            alt="Post content" 
-            className="w-full h-auto max-h-[500px] object-cover"
-            loading="lazy"
-          />
-        </div>
-      )}
-      
-      {/* Post Stats & Actions - Only shown for CampusGeneral and Forum */}
-      {showInteractions && (
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex gap-6">
-            <div className="flex items-center gap-1.5">
-              <button 
-                className={`flex items-center justify-center ${liked ? 'text-cendy-primary' : 'text-gray-600'}`}
-                onClick={handleLike}
-              >
-                <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
-              </button>
-              {likesCount > 0 && (
-                <span className="text-sm text-gray-600 font-medium">{likesCount}</span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-1.5">
-              <button 
-                className="flex items-center justify-center text-gray-600"
-                onClick={handleComment}
-              >
-                <MessageCircle className="w-5 h-5" />
-              </button>
-              {post.comments?.length > 0 && (
-                <span className="text-sm text-gray-600 font-medium">{post.comments.length}</span>
-              )}
-            </div>
+
+      {/* Share Sheet */}
+      <Dialog open={showShareSheet} onOpenChange={setShowShareSheet}>
+        <DialogContent className="sm:max-w-md rounded-xl p-0 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <DialogTitle className="text-center">Share this post</DialogTitle>
           </div>
-          
-          <button 
-            className="p-1 text-gray-500 rounded-md hover:bg-gray-50 transition-colors"
-            onClick={handleShare}
-          >
-            <Share2 className="w-5 h-5" />
-          </button>
-        </div>
-      )}
+          <div className="p-6 grid grid-cols-4 gap-4">
+            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
+              <FacebookIcon className="h-8 w-8 text-blue-600 mb-1" />
+              <span className="text-xs">Facebook</span>
+            </Button>
+            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
+              <TwitterIcon className="h-8 w-8 text-blue-400 mb-1" />
+              <span className="text-xs">Twitter</span>
+            </Button>
+            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
+              <LinkedinIcon className="h-8 w-8 text-blue-700 mb-1" />
+              <span className="text-xs">LinkedIn</span>
+            </Button>
+            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
+              <Link2Icon className="h-8 w-8 text-gray-800 mb-1" />
+              <span className="text-xs">Copy Link</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

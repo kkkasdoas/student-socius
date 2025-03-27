@@ -1,238 +1,257 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { mockChatRooms, mockCampusGeneralPosts, mockForumPosts } from '@/utils/mockData';
+import MessageList from '@/components/MessageList';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, Send, Paperclip, Mic, Image as ImageIcon, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Send, Image, Paperclip, Info } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { Post, ChatroomMessage } from '@/types';
+import { ChatRoom, ChatroomMessage } from '@/types';
 
 const ChatRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<ChatroomMessage[]>([]);
-  const [chatRoom, setChatRoom] = useState<any>(null);
-  const [relatedPost, setRelatedPost] = useState<Post | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
   
-  // Find the chat room and related post
+  // Fetch the chatroom data 
   useEffect(() => {
-    if (!roomId) return;
-    
-    // Try to find a chat room
-    const room = mockChatRooms.find(r => r.id === roomId);
-    
-    if (room) {
-      setChatRoom(room);
-      setMessages(room.messages);
-      
-      // If this room is linked to a post, find it
-      if (room.postId) {
-        const foundPost = [...mockCampusGeneralPosts, ...mockForumPosts].find(p => p.id === room.postId);
-        if (foundPost) {
-          setRelatedPost(foundPost);
-        }
-      }
-      return;
-    }
-    
-    // If not a chat room, check if it's a post ID
-    const foundPost = [...mockCampusGeneralPosts, ...mockForumPosts].find(p => p.id === roomId);
-    
-    if (foundPost) {
-      setRelatedPost(foundPost);
-      // For posts without an existing chatroom, we would create a new one here
-      // In this mock version, we just show the post details
-    }
-  }, [roomId]);
-  
-  // Scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-  
-  const handleSend = () => {
-    if (!message.trim() || !currentUser) return;
-    
-    const newMessage: ChatroomMessage = {
-      id: `msg-${Date.now()}`,
-      chatroomId: chatRoom ? chatRoom.id : roomId!,
-      senderId: currentUser.id,
-      content: message,
+    // In a real app, we would fetch this data from the API
+    // For now, we'll create a mock chatroom
+    const mockChatRoom: ChatRoom = {
+      id: roomId || 'unknown',
+      chatroomName: 'Economics Study Group',
+      chatroomPhoto: 'https://i.pravatar.cc/150?img=group',
+      participants: currentUser ? [currentUser] : [],
+      messages: [],
       createdAt: new Date(),
-      sender: currentUser
+      updatedAt: new Date()
     };
     
-    setMessages([...messages, newMessage]);
-    setMessage('');
+    // Generate some mock messages
+    const mockMessages: ChatroomMessage[] = [
+      {
+        id: 'msg-1',
+        chatroomId: roomId || '',
+        senderId: '123',
+        content: 'Hello everyone! Welcome to the Economics Study Group.',
+        createdAt: new Date(new Date().getTime() - 48 * 60 * 60 * 1000),
+        sender: {
+          id: '123',
+          displayName: 'James Wilson',
+          university: 'TDTU University',
+          verificationStatus: 'verified',
+          authProvider: 'google',
+          profilePictureUrl: 'https://i.pravatar.cc/150?img=33',
+          blockStatus: false,
+          isDeleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      },
+      {
+        id: 'msg-2',
+        chatroomId: roomId || '',
+        senderId: currentUser?.id || '',
+        content: 'Hi James! Thanks for creating this group. I have a question about the upcoming exam.',
+        createdAt: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
+        sender: currentUser || {
+          id: 'user-current',
+          displayName: 'Current User',
+          university: 'TDTU University',
+          verificationStatus: 'verified',
+          authProvider: 'google',
+          profilePictureUrl: 'https://i.pravatar.cc/150?img=45',
+          blockStatus: false,
+          isDeleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      },
+      {
+        id: 'msg-3',
+        chatroomId: roomId || '',
+        senderId: '123',
+        content: 'Sure! What questions do you have?',
+        createdAt: new Date(new Date().getTime() - 22 * 60 * 60 * 1000),
+        sender: {
+          id: '123',
+          displayName: 'James Wilson',
+          university: 'TDTU University',
+          verificationStatus: 'verified',
+          authProvider: 'google',
+          profilePictureUrl: 'https://i.pravatar.cc/150?img=33',
+          blockStatus: false,
+          isDeleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      },
+      {
+        id: 'msg-4',
+        chatroomId: roomId || '',
+        senderId: '456',
+        content: 'I\'d like to know which chapters will be covered?',
+        createdAt: new Date(new Date().getTime() - 20 * 60 * 60 * 1000),
+        sender: {
+          id: '456',
+          displayName: 'Sarah Johnson',
+          university: 'TDTU University',
+          verificationStatus: 'verified',
+          authProvider: 'microsoft',
+          profilePictureUrl: 'https://i.pravatar.cc/150?img=23',
+          blockStatus: false,
+          isDeleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      }
+    ];
+    
+    mockChatRoom.messages = mockMessages;
+    mockChatRoom.lastMessage = mockMessages[mockMessages.length - 1];
+    
+    setChatRoom(mockChatRoom);
+  }, [roomId, currentUser]);
+  
+  const handleSendMessage = () => {
+    if (message.trim() && chatRoom) {
+      // In a real app, this would send the message to the API
+      console.log('Sending message to chatroom:', message);
+      
+      // Create a new message
+      const newMessage: ChatroomMessage = {
+        id: `msg-${Date.now()}`,
+        chatroomId: chatRoom.id,
+        senderId: currentUser?.id || '',
+        content: message,
+        createdAt: new Date(),
+        sender: currentUser || {
+          id: 'user-current',
+          displayName: 'Current User',
+          university: 'TDTU University',
+          verificationStatus: 'verified',
+          authProvider: 'google',
+          profilePictureUrl: 'https://i.pravatar.cc/150?img=45',
+          blockStatus: false,
+          isDeleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      };
+      
+      // Update the chatroom with the new message
+      setChatRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastMessage: newMessage
+        };
+      });
+      
+      setMessage('');
+    }
   };
   
-  const getChatroomName = () => {
-    if (chatRoom && chatRoom.chatroomName) {
-      return chatRoom.chatroomName;
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
-    
-    if (relatedPost) {
-      return relatedPost.chatroomName || relatedPost.title;
-    }
-    
-    return 'Chat Room';
   };
-
-  const handleViewChatroomInfo = () => {
-    navigate(`/chatroom-info/${roomId}`);
-  };
+  
+  if (!chatRoom) {
+    return (
+      <Layout>
+        <div className="h-screen flex items-center justify-center">
+          <p>Loading chatroom...</p>
+        </div>
+      </Layout>
+    );
+  }
   
   return (
-    <Layout hideNav>
-      <div className="flex flex-col h-screen">
+    <Layout>
+      <div className="h-screen flex flex-col bg-cendy-bg">
         {/* Header */}
-        <div className="p-3 border-b border-cendy-border bg-white flex items-center">
-          <button 
-            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors mr-2"
-            onClick={() => navigate(-1)}
+        <div className="bg-white border-b border-gray-200 flex items-center p-2 z-10">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="mr-2" 
+            onClick={() => navigate('/messages')}
           >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          
+          <Avatar className="h-9 w-9 mr-3">
+            <AvatarImage 
+              src={chatRoom.chatroomPhoto || "https://i.pravatar.cc/150?img=group"} 
+              alt={chatRoom.chatroomName || "Chatroom"} 
+            />
+            <AvatarFallback>
+              {chatRoom.chatroomName ? chatRoom.chatroomName.substring(0, 2).toUpperCase() : "CR"}
+            </AvatarFallback>
+          </Avatar>
           
           <div className="flex-1">
-            <h1 className="font-medium text-gray-800 truncate">
-              {getChatroomName()}
-            </h1>
+            <h2 className="font-medium">{chatRoom.chatroomName || "Chatroom"}</h2>
             <p className="text-xs text-gray-500">
-              {chatRoom?.participants?.length || 0} participants
+              {chatRoom.participants.length} participants
             </p>
           </div>
-
-          <button 
-            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-            onClick={handleViewChatroomInfo}
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate(`/chatroom-info/${roomId}`)}
           >
-            {chatRoom?.chatroomPhoto ? (
-              <img 
-                src={chatRoom.chatroomPhoto} 
-                alt="Chatroom" 
-                className="w-7 h-7 rounded-full object-cover"
-              />
-            ) : (
-              <Info className="w-5 h-5 text-gray-700" />
-            )}
-          </button>
+            <Info className="h-5 w-5" />
+          </Button>
         </div>
         
-        {/* Post (if viewing a post's chat room) */}
-        {relatedPost && relatedPost.channelType !== 'CampusCommunity' && relatedPost.channelType !== 'Community' && (
-          <div className="p-3 border-b border-cendy-border bg-white">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center mb-2">
-                <img 
-                  src={relatedPost.user.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
-                  alt={relatedPost.user.displayName} 
-                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                />
-                <div className="ml-2">
-                  <div className="flex items-center">
-                    <p className="text-sm font-medium text-gray-800">{relatedPost.user.displayName}</p>
-                    <span className="mx-1 text-xs text-gray-500">
-                      {formatDistanceToNow(new Date(relatedPost.createdAt), { addSuffix: false })}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    {relatedPost.category && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 mr-1">
-                        {relatedPost.category}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <h3 className="text-sm font-semibold mb-1">{relatedPost.title}</h3>
-              <p className="text-sm text-gray-800">{relatedPost.content}</p>
-              {relatedPost.imageUrl && (
-                <img 
-                  src={relatedPost.imageUrl} 
-                  alt="Post content" 
-                  className="mt-2 rounded-lg max-h-40 object-cover"
-                />
-              )}
-            </div>
-          </div>
-        )}
-        
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {messages.length > 0 ? (
-            messages.map(msg => (
-              <div 
-                key={msg.id}
-                className={`flex ${msg.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.senderId !== currentUser?.id && (
-                  <img 
-                    src={msg.sender.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
-                    alt={msg.sender.displayName} 
-                    className="w-8 h-8 rounded-full object-cover mr-2 self-end"
-                  />
-                )}
-                
-                <div 
-                  className={`max-w-[75%] rounded-2xl p-3 ${
-                    msg.senderId === currentUser?.id 
-                      ? 'bg-cendy-primary text-white rounded-br-none' 
-                      : 'bg-white text-gray-800 rounded-bl-none'
-                  }`}
-                >
-                  {msg.senderId !== currentUser?.id && (
-                    <p className="text-xs font-medium mb-1">
-                      {msg.sender.displayName}
-                    </p>
-                  )}
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  <p 
-                    className={`text-[10px] mt-1 text-right ${
-                      msg.senderId === currentUser?.id ? 'text-white/70' : 'text-gray-500'
-                    }`}
-                  >
-                    {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: false })}
-                  </p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40 text-gray-500">
-              <p>No messages yet</p>
-              <p className="text-sm text-gray-400 mt-1">Be the first to send a message</p>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+        <div className="flex-1 overflow-y-auto">
+          <MessageList messages={chatRoom.messages} chatRoom={chatRoom} isChatroom={true} />
         </div>
         
         {/* Message Input */}
-        <div className="p-3 border-t border-cendy-border bg-white">
-          <div className="flex items-center">
-            <button className="p-2 text-gray-500 hover:text-gray-700 transition-colors">
-              <Image className="w-5 h-5" />
-            </button>
-            <button className="p-2 text-gray-500 hover:text-gray-700 transition-colors">
-              <Paperclip className="w-5 h-5" />
-            </button>
-            <input 
-              type="text" 
+        <div className="bg-white border-t border-gray-200 p-2 flex items-end">
+          <Button variant="ghost" size="icon" className="text-gray-500">
+            <Paperclip className="h-5 w-5" />
+          </Button>
+          
+          <Button variant="ghost" size="icon" className="text-gray-500 mr-2">
+            <ImageIcon className="h-5 w-5" />
+          </Button>
+          
+          <div className="flex-1 relative">
+            <Input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyPress}
               placeholder="Type a message..."
-              className="flex-1 px-4 py-2 bg-gray-100 rounded-full mx-2 focus:outline-none focus:ring-2 focus:ring-cendy-primary/30"
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              className="min-h-[40px] max-h-[120px] pr-12 py-2 resize-none"
+              multiline="true"
             />
-            <button 
-              className="p-2 text-cendy-primary hover:text-cendy-primary/80 transition-colors"
-              onClick={handleSend}
+            
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute right-1 bottom-1 text-gray-500"
+              disabled={!message.trim()}
+              onClick={handleSendMessage}
             >
-              <Send className="w-5 h-5" />
-            </button>
+              {message.trim() ? (
+                <Send className="h-5 w-5 text-cendy-primary" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+            </Button>
           </div>
         </div>
       </div>

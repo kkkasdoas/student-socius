@@ -2,210 +2,219 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { mockChatRooms, mockCampusGeneralPosts, mockForumPosts } from '@/utils/mockData';
-import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Search, LogOut, Flag, Link as LinkIcon } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { User } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, MoreVertical, Image as ImageIcon, Paperclip, Link as LinkIcon } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { ChatRoom, User } from '@/types';
 
 const ChatroomInfoPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [chatRoom, setChatRoom] = useState<any>(null);
-  const [relatedPost, setRelatedPost] = useState<any>(null);
+  const navigate = useNavigate();
+  const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
   
+  // Fetch the chatroom data
   useEffect(() => {
-    if (!roomId) return;
-    
-    const room = mockChatRooms.find(r => r.id === roomId);
-    if (room) {
-      setChatRoom(room);
-      
-      if (room.postId) {
-        const foundPost = [...mockCampusGeneralPosts, ...mockForumPosts].find(p => p.id === room.postId);
-        if (foundPost) {
-          setRelatedPost(foundPost);
-        }
+    // In a real app, we would fetch this data from the API
+    // For now, we'll create a mock chatroom
+    const mockParticipants: User[] = [
+      {
+        id: '123',
+        displayName: 'James Wilson',
+        university: 'TDTU University',
+        verificationStatus: 'verified',
+        authProvider: 'google',
+        profilePictureUrl: 'https://i.pravatar.cc/150?img=33',
+        blockStatus: false,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '456',
+        displayName: 'Sarah Johnson',
+        university: 'TDTU University',
+        verificationStatus: 'verified',
+        authProvider: 'microsoft',
+        profilePictureUrl: 'https://i.pravatar.cc/150?img=23',
+        blockStatus: false,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '789',
+        displayName: 'Michael Brown',
+        university: 'TDTU University',
+        verificationStatus: 'verified',
+        authProvider: 'apple',
+        profilePictureUrl: 'https://i.pravatar.cc/150?img=53',
+        blockStatus: false,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
+    ];
+    
+    if (currentUser) {
+      mockParticipants.push(currentUser);
     }
-  }, [roomId]);
+    
+    const mockChatRoom: ChatRoom = {
+      id: roomId || 'unknown',
+      chatroomName: 'Economics Study Group',
+      chatroomPhoto: 'https://i.pravatar.cc/150?img=group',
+      participants: mockParticipants,
+      messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setChatRoom(mockChatRoom);
+  }, [roomId, currentUser]);
   
   if (!chatRoom) {
     return (
-      <Layout hideNav>
-        <div className="flex items-center justify-center h-screen">
-          <p>Loading chatroom information...</p>
+      <Layout>
+        <div className="h-screen flex items-center justify-center">
+          <p>Loading chatroom info...</p>
         </div>
       </Layout>
     );
   }
   
-  const getChatroomName = () => {
-    if (chatRoom.chatroomName) {
-      return chatRoom.chatroomName;
-    }
-    
-    if (relatedPost) {
-      return relatedPost.chatroomName || relatedPost.title;
-    }
-    
-    return 'Chat Room';
-  };
-  
   return (
-    <Layout hideNav>
-      <div className="flex flex-col h-screen bg-gray-50">
+    <Layout>
+      <div className="h-screen flex flex-col bg-cendy-bg">
         {/* Header */}
-        <div className="p-4 border-b bg-white flex items-center">
-          <button 
-            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors mr-2"
-            onClick={() => navigate(-1)}
+        <div className="bg-white border-b border-gray-200 flex items-center p-4 z-10">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="mr-2" 
+            onClick={() => navigate(`/chatroom/${roomId}`)}
           >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          <h1 className="font-medium text-lg text-gray-800">Chatroom Info</h1>
-        </div>
-        
-        {/* Chatroom Photo & Name */}
-        <div className="bg-white p-6 flex flex-col items-center">
-          <div className="w-24 h-24 mb-4">
-            {chatRoom.chatroomPhoto ? (
-              <img 
-                src={chatRoom.chatroomPhoto} 
-                alt="Chatroom"
-                className="w-full h-full rounded-full object-cover border-2 border-gray-200"
-              />
-            ) : (
-              <div className="w-full h-full rounded-full bg-cendy-primary flex items-center justify-center text-white text-xl font-bold">
-                {getChatroomName().charAt(0)}
-              </div>
-            )}
-          </div>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
           
-          <h2 className="text-xl font-bold text-gray-800 mb-1">{getChatroomName()}</h2>
-          <p className="text-sm text-gray-500">Members: {chatRoom.participants.length}</p>
+          <h1 className="text-xl font-semibold flex-1">Chatroom Info</h1>
+          
+          <Button variant="ghost" size="icon">
+            <MoreVertical className="h-5 w-5" />
+          </Button>
         </div>
         
-        {/* Action Buttons */}
-        <div className="bg-white mt-2 p-4 grid grid-cols-4 gap-2">
-          <div className="flex flex-col items-center">
-            <button className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-1">
-              <Search className="w-5 h-5 text-blue-500" />
-            </button>
-            <span className="text-xs text-blue-500">Search</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <button className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-1">
-              <LinkIcon className="w-5 h-5 text-green-500" />
-            </button>
-            <span className="text-xs text-green-500">Share</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <button className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-1">
-              <LogOut className="w-5 h-5 text-red-500" />
-            </button>
-            <span className="text-xs text-red-500">Leave</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <button className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mb-1">
-              <Flag className="w-5 h-5 text-orange-500" />
-            </button>
-            <span className="text-xs text-orange-500">Report</span>
+        {/* Chatroom Info */}
+        <div className="p-6 bg-white mb-2 flex flex-col items-center">
+          <Avatar className="w-24 h-24 mb-4">
+            <AvatarImage 
+              src={chatRoom.chatroomPhoto || "https://i.pravatar.cc/150?img=group"} 
+              alt={chatRoom.chatroomName || "Chatroom"} 
+            />
+            <AvatarFallback className="text-2xl">
+              {chatRoom.chatroomName ? chatRoom.chatroomName.substring(0, 2).toUpperCase() : "CR"}
+            </AvatarFallback>
+          </Avatar>
+          
+          <h2 className="text-xl font-bold mb-1">{chatRoom.chatroomName || "Chatroom"}</h2>
+          
+          <p className="text-gray-500 mb-4">
+            {chatRoom.participants.length} participants
+          </p>
+          
+          <div className="flex space-x-3">
+            <Button variant="outline" className="text-gray-600">
+              Search Chat
+            </Button>
+            <Button variant="outline" className="text-red-600">
+              Leave Chat
+            </Button>
           </div>
         </div>
-        
-        {/* Chatroom Link */}
-        {relatedPost && (
-          <div className="bg-white mt-2 p-4">
-            <h3 className="text-sm text-gray-500 mb-2">Chatroom link</h3>
-            <div className="p-2 bg-gray-100 rounded-md text-blue-500 text-sm truncate">
-              https://app.cendy.io/chatroom/{chatRoom.id}
-            </div>
-          </div>
-        )}
-        
-        {/* Post Details */}
-        {relatedPost && (
-          <div className="bg-white mt-2 p-4">
-            <h3 className="text-sm text-gray-500 mb-2">Original Post</h3>
-            <div className="mb-2">
-              <span className="text-sm font-medium">Title</span>
-              <p className="text-gray-800">{relatedPost.title}</p>
-            </div>
-            <div>
-              <span className="text-sm font-medium">Content</span>
-              <p className="text-gray-800">
-                {relatedPost.content.length > 100 
-                  ? `${relatedPost.content.substring(0, 100)}... `
-                  : relatedPost.content
-                }
-                {relatedPost.content.length > 100 && (
-                  <span className="text-blue-500">more</span>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
         
         {/* Tabs */}
-        <div className="flex-1 mt-2 bg-white">
-          <Tabs defaultValue="members">
-            <TabsList className="w-full">
-              <TabsTrigger value="members" className="flex-1">Members</TabsTrigger>
-              <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
-              <TabsTrigger value="files" className="flex-1">Files</TabsTrigger>
-              <TabsTrigger value="links" className="flex-1">Links</TabsTrigger>
+        <div className="flex-1 bg-white overflow-hidden flex flex-col">
+          <Tabs defaultValue="members" className="w-full h-full">
+            <TabsList className="grid grid-cols-4 bg-gray-100">
+              <TabsTrigger value="members">Members</TabsTrigger>
+              <TabsTrigger value="media">Media</TabsTrigger>
+              <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="links">Links</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="members" className="p-0">
-              <div className="p-4 border-b flex items-center text-blue-500">
-                <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <line x1="19" x2="19" y1="8" y2="14" />
-                    <line x1="16" x2="22" y1="11" y2="11" />
-                  </svg>
-                </span>
-                Add members
-              </div>
-              
-              {chatRoom.participants.map((participant: User) => (
-                <div key={participant.id} className="p-4 border-b flex items-center">
-                  <img 
-                    src={participant.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'}
-                    alt={participant.displayName}
-                    className="w-10 h-10 rounded-full object-cover mr-3"
-                  />
-                  <div>
-                    <p className="font-medium">{participant.displayName}</p>
-                    <p className="text-xs text-gray-500">{participant.bio || 'No bio'}</p>
+            <TabsContent value="members" className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                {chatRoom.participants.map(user => (
+                  <div key={user.id} className="flex items-center p-2 hover:bg-gray-50 rounded-lg">
+                    <Avatar className="w-12 h-12 mr-3">
+                      <AvatarImage 
+                        src={user.profilePictureUrl || "https://i.pravatar.cc/150?img=default"} 
+                        alt={user.displayName} 
+                      />
+                      <AvatarFallback>{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <h3 className="font-medium">{user.displayName}</h3>
+                        {user.verificationStatus === 'verified' && (
+                          <span className="ml-1 text-xs text-blue-500">✓</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">{user.university || "Student"}</p>
+                    </div>
+                    
+                    <Button variant="ghost" size="sm">
+                      View
+                    </Button>
                   </div>
-                  {participant.id === chatRoom.participants[0]?.id && (
-                    <span className="ml-auto text-xs text-gray-400">owner</span>
-                  )}
-                </div>
-              ))}
-            </TabsContent>
-            
-            <TabsContent value="media">
-              <div className="flex items-center justify-center h-40 text-gray-400">
-                <p>No media files</p>
+                ))}
               </div>
             </TabsContent>
             
-            <TabsContent value="files">
-              <div className="flex items-center justify-center h-40 text-gray-400">
-                <p>No files</p>
+            <TabsContent value="media" className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-3 gap-2">
+                {Array(9).fill(0).map((_, i) => (
+                  <div key={i} className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
+                    <ImageIcon className="text-gray-400 h-8 w-8" />
+                  </div>
+                ))}
               </div>
             </TabsContent>
             
-            <TabsContent value="links">
-              <div className="flex items-center justify-center h-40 text-gray-400">
-                <p>No links</p>
+            <TabsContent value="files" className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                {Array(5).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center p-3 border border-gray-200 rounded-lg">
+                    <Paperclip className="h-5 w-5 text-gray-400 mr-3" />
+                    <div className="flex-1">
+                      <p className="font-medium">Document {i+1}.pdf</p>
+                      <p className="text-xs text-gray-500">2.4 MB</p>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      Download
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="links" className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center p-3 border border-gray-200 rounded-lg">
+                    <LinkIcon className="h-5 w-5 text-gray-400 mr-3" />
+                    <div className="flex-1">
+                      <p className="font-medium">Link to resource {i+1}</p>
+                      <p className="text-xs text-gray-500 truncate">https://example.com/resource-{i+1}</p>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      Open
+                    </Button>
+                  </div>
+                ))}
               </div>
             </TabsContent>
           </Tabs>

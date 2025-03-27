@@ -12,6 +12,7 @@ import DirectMessagePage from '@/pages/DirectMessagePage';
 import ChatRoomPage from '@/pages/ChatRoomPage';
 import ChatroomInfoPage from '@/pages/ChatroomInfoPage';
 import CreatePostPage from '@/pages/CreatePostPage';
+import EditProfilePage from '@/pages/EditProfilePage';
 import './App.css';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           <Route path="/feed" element={<Feed />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/edit-profile" element={<EditProfilePage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
           <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />

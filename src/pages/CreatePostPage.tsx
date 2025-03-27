@@ -1,11 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import { ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChannelType } from '@/types';
-import { X } from 'lucide-react';
-import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -13,119 +16,173 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-
-interface LocationState {
-  channelType: ChannelType;
-  university: string;
-}
 
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { currentUser } = useAuth();
-  
-  // Get the channel type and university from location state
-  const state = location.state as LocationState;
-  const channelType = state?.channelType || 'CampusGeneral';
-  const university = state?.university || currentUser?.university || 'TDTU University';
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isPosting, setIsPosting] = useState(false);
   const [category, setCategory] = useState<'Study' | 'Fun' | 'Drama' | 'Other' | ''>('');
-  const [chatroomName, setChatroomName] = useState(
-    currentUser ? `${currentUser.displayName}'s chatroom` : 'New chatroom'
-  );
-  const [chatroomPhoto, setChatroomPhoto] = useState(currentUser?.profilePictureUrl || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [channelType, setChannelType] = useState<ChannelType | ''>('');
+  const [chatroomName, setChatroomName] = useState('');
   
-  const handleCancel = () => {
-    navigate(-1);
+  // Initialize the chatroom name with a default based on user's display name
+  useEffect(() => {
+    if (currentUser) {
+      setChatroomName(`${currentUser.displayName}'s chatroom`);
+    }
+  }, [currentUser]);
+  
+  // Get the channel type from session storage if available
+  useEffect(() => {
+    const storedChannel = sessionStorage.getItem('selectedChannel') as ChannelType | null;
+    if (storedChannel) {
+      setChannelType(storedChannel);
+    }
+  }, []);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
-  
-  const handleSubmit = () => {
-    // Validate form
+
+  const removeImage = () => {
+    setImage(null);
+    setImagePreview(null);
+  };
+
+  const handleSubmit = async () => {
     if (!title.trim()) {
-      toast.error('Please enter a title for your post');
+      toast.error('Please enter a title');
       return;
     }
-    
+
     if (!content.trim()) {
-      toast.error('Please enter content for your post');
+      toast.error('Please enter some content');
       return;
     }
-    
+
     if (!category) {
-      toast.error('Please select a category for your post');
+      toast.error('Please select a category');
       return;
     }
-    
+
+    if (!channelType) {
+      toast.error('Please select a channel');
+      return;
+    }
+
     if (!chatroomName.trim()) {
-      toast.error('Please enter a name for the chatroom');
+      toast.error('Please enter a chatroom name');
       return;
     }
-    
-    setIsSubmitting(true);
-    
-    // Simulate post creation
-    setTimeout(() => {
-      toast.success('Post created successfully');
-      setIsSubmitting(false);
+
+    try {
+      setIsPosting(true);
+      
+      // In a real app, we would send this data to the server
+      // Here, we'll just simulate a delay and redirect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Generate a unique ID for the post
+      const postId = `post-${Date.now()}`;
+      
+      // Generate a unique ID for the chatroom
+      const chatroomId = `chatroom-${Date.now()}`;
+
+      console.log('Creating post:', {
+        id: postId,
+        userId: currentUser?.id,
+        title,
+        content,
+        university: channelType === 'Forum' || channelType === 'Community' ? 'all' : currentUser?.university,
+        chatroomId,
+        chatroomName,
+        imageUrl: imagePreview ? imagePreview : undefined,
+        channelType,
+        category,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      
+      console.log('Creating chatroom:', {
+        id: chatroomId,
+        postId,
+        chatroomName,
+        chatroomPhoto: currentUser?.profilePictureUrl,
+        participants: [currentUser],
+        messages: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      
+      toast.success('Post created successfully!');
       navigate('/feed');
-    }, 1000);
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast.error('Failed to create post. Please try again.');
+    } finally {
+      setIsPosting(false);
+    }
   };
-  
+
   return (
-    <Layout hideNav>
-      <div className="flex flex-col h-screen">
+    <Layout>
+      <div className="flex flex-col h-screen bg-white">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <button 
-            onClick={handleCancel}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <X className="w-6 h-6" />
-          </button>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate(-1)} 
+              className="mr-2"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-semibold">Create Post</h1>
+          </div>
           
-          <h1 className="text-lg font-semibold">{channelType === 'CampusGeneral' ? 'New Campus Post' : 
-                         channelType === 'Forum' ? 'New Forum Post' :
-                         channelType === 'CampusCommunity' ? 'New Campus Community Post' : 
-                         'New Community Post'}</h1>
-          
-          <button 
-            onClick={handleSubmit}
-            disabled={isSubmitting || !title || !content || !category || !chatroomName}
-            className="px-4 py-1.5 bg-cendy-primary text-white rounded-full text-sm font-medium disabled:opacity-50"
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isPosting || !title.trim() || !content.trim() || !category || !channelType}
+            className="bg-cendy-primary hover:bg-cendy-primary/90"
           >
-            {isSubmitting ? 'Posting...' : 'Post'}
-          </button>
+            {isPosting ? 'Posting...' : 'Post'}
+          </Button>
         </div>
         
         {/* Form */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {/* Title */}
-          <div className="mb-4">
-            <input 
-              type="text"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full p-3 text-lg font-semibold border-none focus:outline-none focus:ring-0 placeholder:text-gray-400"
-            />
-          </div>
-          
-          {/* Content */}
-          <div className="mb-4">
-            <Textarea 
-              placeholder="What's on your mind?"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full min-h-[200px] border-none focus:outline-none focus:ring-0 placeholder:text-gray-400 resize-none"
-            />
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Channel Type */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Channel</h3>
+            <Select value={channelType} onValueChange={(value) => setChannelType(value as ChannelType)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a channel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CampusGeneral">Campus General</SelectItem>
+                <SelectItem value="Forum">Forum</SelectItem>
+                <SelectItem value="CampusCommunity">Campus Community</SelectItem>
+                <SelectItem value="Community">Community</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           {/* Category */}
-          <div className="mb-4">
+          <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Category</h3>
             <Select value={category} onValueChange={(value) => setCategory(value as any)}>
               <SelectTrigger className="w-full">
@@ -140,47 +197,80 @@ const CreatePostPage: React.FC = () => {
             </Select>
           </div>
           
+          {/* Title */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Title</h3>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Add a title..."
+              className="w-full"
+            />
+          </div>
+          
+          {/* Content */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Content</h3>
+            <Textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="What's on your mind?"
+              className="w-full min-h-[150px]"
+            />
+          </div>
+          
           {/* Chatroom Name */}
-          <div className="mb-4">
+          <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Chatroom Name</h3>
-            <input 
-              type="text"
-              placeholder="Enter chatroom name"
+            <Input
               value={chatroomName}
               onChange={(e) => setChatroomName(e.target.value)}
-              className="w-full p-3 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-cendy-primary/30"
+              placeholder="Enter a name for the chatroom"
+              className="w-full"
             />
           </div>
           
-          {/* Chatroom Photo */}
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Chatroom Photo URL (optional)</h3>
-            <input 
-              type="text"
-              placeholder="Enter photo URL"
-              value={chatroomPhoto}
-              onChange={(e) => setChatroomPhoto(e.target.value)}
-              className="w-full p-3 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-cendy-primary/30"
-            />
-            {chatroomPhoto && (
-              <div className="mt-2 flex justify-center">
+          {/* Image Upload */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Image (Optional)</h3>
+            
+            {imagePreview ? (
+              <div className="relative rounded-lg overflow-hidden">
                 <img 
-                  src={chatroomPhoto} 
-                  alt="Chatroom" 
-                  className="w-16 h-16 rounded-full object-cover border"
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="w-full h-auto max-h-[300px] object-contain bg-gray-100"
                 />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 rounded-full"
+                  onClick={removeImage}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4 flex text-sm text-gray-600 justify-center">
+                  <label
+                    htmlFor="file-upload"
+                    className="relative cursor-pointer rounded-md font-medium text-cendy-primary hover:text-cendy-primary/80"
+                  >
+                    <span>Upload an image</span>
+                    <input
+                      id="file-upload"
+                      name="file-upload"
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleImageChange}
+                    />
+                  </label>
+                </div>
               </div>
             )}
-          </div>
-          
-          {/* Info about where this post will be visible */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-1">Post visibility</h3>
-            <p className="text-sm text-gray-600">
-              {channelType === 'CampusGeneral' || channelType === 'CampusCommunity' 
-                ? `This post will be visible to ${university} students only.`
-                : 'This post will be visible to students from all universities.'}
-            </p>
           </div>
         </div>
       </div>
