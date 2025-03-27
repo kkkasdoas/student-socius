@@ -1,4 +1,3 @@
-
 import { User, Post, Comment, Reaction, Message, ChatRoom, ChatroomMessage } from "@/types";
 
 // Mock Universities
@@ -581,3 +580,99 @@ export const isAllowedDomain = (email: string): boolean => {
   const domain = getDomainFromEmail(email);
   return universities.some(u => u.domain === domain);
 };
+
+export const mockPosts: Post[] = [
+  {
+    id: 'post1',
+    userId: 'user1',
+    title: 'Study Group for Midterms',
+    content: 'Looking for study buddies for upcoming midterms. Let\'s collaborate!',
+    university: 'Stanford University',
+    conversationId: 'conv1',
+    imageUrl: 'https://example.com/study-group.jpg',
+    channelType: 'Forum',
+    category: 'Study',
+    createdAt: new Date('2023-11-15T10:30:00Z'),
+    updatedAt: new Date('2023-11-15T10:30:00Z'),
+    user: mockUsers[0],
+    reactions: [
+      { id: 'r1', postId: 'post1', userId: 'user2', type: 'like', createdAt: new Date() },
+      { id: 'r2', postId: 'post1', userId: 'user3', type: 'heart', createdAt: new Date() }
+    ]
+  },
+  {
+    id: 'post2',
+    userId: 'user2',
+    title: 'New Coffee Shop Review',
+    content: 'Has anyone tried the new coffee shop that opened near campus? Their cold brew is amazing!',
+    university: 'Stanford University',
+    conversationId: 'conv2',
+    imageUrl: 'https://example.com/coffee-shop.jpg',
+    channelType: 'Forum',
+    category: 'Fun',
+    createdAt: new Date('2023-11-14T15:45:00Z'),
+    updatedAt: new Date('2023-11-14T15:45:00Z'),
+    user: mockUsers[1],
+    reactions: [
+      { id: 'r3', postId: 'post2', userId: 'user3', type: 'like', createdAt: new Date() },
+      { id: 'r4', postId: 'post2', userId: 'user4', type: 'heart', createdAt: new Date() }
+    ]
+  },
+  {
+    id: 'post3',
+    userId: 'user3',
+    title: 'Campus Clean-up Event',
+    content: 'Organizing a campus clean-up event this Saturday. We need volunteers! Message me if you can help.',
+    university: 'Stanford University',
+    conversationId: 'conv3',
+    imageUrl: 'https://example.com/clean-up.jpg',
+    channelType: 'CampusCommunity',
+    category: 'Other',
+    createdAt: new Date('2023-11-14T13:45:00Z'),
+    updatedAt: new Date('2023-11-14T13:45:00Z'),
+    user: mockUsers[2],
+    reactions: [
+      { id: 'r5', postId: 'post3', userId: 'user4', type: 'like', createdAt: new Date() },
+      { id: 'r6', postId: 'post3', userId: 'user5', type: 'heart', createdAt: new Date() }
+    ]
+  },
+  {
+    id: 'post4',
+    userId: 'user4',
+    title: 'Online Course Recommendations',
+    content: 'Looking for recommendations on the best online courses to supplement my studies. Any suggestions?',
+    university: 'Stanford University',
+    conversationId: 'conv4',
+    imageUrl: 'https://example.com/courses.jpg',
+    channelType: 'Forum',
+    category: 'Study',
+    createdAt: new Date('2023-11-12T17:20:00Z'),
+    updatedAt: new Date('2023-11-12T17:20:00Z'),
+    user: mockUsers[3],
+    reactions: [
+      { id: 'r7', postId: 'post4', userId: 'user5', type: 'like', createdAt: new Date() },
+      { id: 'r8', postId: 'post4', userId: 'user6', type: 'heart', createdAt: new Date() }
+    ]
+  },
+  {
+    id: 'post5',
+    userId: 'user5',
+    title: 'Research Project Completed!',
+    content: 'Just finished my research project and it went so well! Feeling accomplished!',
+    university: 'Stanford University',
+    conversationId: 'conv5',
+    imageUrl: 'https://example.com/research.jpg',
+    channelType: 'Forum',
+    category: 'Fun',
+    createdAt: new Date('2023-11-11T10:10:00Z'),
+    updatedAt: new Date('2023-11-11T10:10:00Z'),
+    user: mockUsers[4],
+    reactions: [
+      { id: 'r9', postId: 'post5', userId: 'user6', type: 'like', createdAt: new Date() },
+      { id: 'r10', postId: 'post5', userId: 'user1', type: 'heart', createdAt: new Date() }
+    ]
+  }
+].map(post => ({
+  ...post,
+  category: post.category || 'Other'
+}));
