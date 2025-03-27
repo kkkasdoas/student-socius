@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import {
   ThumbsUp,
   Heart,
@@ -22,35 +21,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Post, Reaction } from '@/types';
 import { useNavigate } from 'react-router-dom';
-
-const formatTimeAgo = (date: Date) => {
-  const daysDifference = differenceInDays(new Date(), new Date(date));
-  
-  if (daysDifference > 30) {
-    return format(new Date(date), 'dd/MM/yyyy');
-  }
-  
-  const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: false });
-  
-  // Convert to short format
-  if (timeAgo.includes('second')) {
-    return timeAgo.replace(/\d+ seconds?/, match => `${match.split(' ')[0]}s`);
-  }
-  if (timeAgo.includes('minute')) {
-    return timeAgo.replace(/\d+ minutes?/, match => `${match.split(' ')[0]}m`);
-  }
-  if (timeAgo.includes('hour')) {
-    return timeAgo.replace(/\d+ hours?/, match => `${match.split(' ')[0]}h`);
-  }
-  if (timeAgo.includes('day')) {
-    return timeAgo.replace(/\d+ days?/, match => `${match.split(' ')[0]}d`);
-  }
-  if (timeAgo.includes('month')) {
-    return timeAgo.replace(/\d+ months?/, match => `${match.split(' ')[0]}mo`);
-  }
-  
-  return timeAgo;
-};
 
 const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   const [reactionGroups, setReactionGroups] = useState({
@@ -98,7 +68,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   };
 
   // Format timestamp
-  const formattedTime = formatTimeAgo(new Date(post.createdAt));
+  const formattedTime = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4">
@@ -122,6 +92,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
                   {post.category}
                 </span>
               )}
+              <span>{post.university !== "all" ? post.university : "All Universities"}</span>
             </div>
           </div>
         </div>
@@ -154,7 +125,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
       {/* Post Title */}
       <div
         className="px-4 pb-2 text-lg font-semibold cursor-pointer hover:text-cendy-primary"
-        onClick={() => navigate(`/chatroom/${post.conversationId}`)}
+        onClick={() => navigate(`/chatroom/${post.chatroomId}`)}
       >
         {post.title}
       </div>
@@ -162,7 +133,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
       {/* Post Content */}
       <div
         className="px-4 pb-4 text-gray-700 cursor-pointer"
-        onClick={() => navigate(`/chatroom/${post.conversationId}`)}
+        onClick={() => navigate(`/chatroom/${post.chatroomId}`)}
       >
         {post.content}
       </div>
@@ -171,7 +142,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
       {post.imageUrl && (
         <div
           className="cursor-pointer"
-          onClick={() => navigate(`/chatroom/${post.conversationId}`)}
+          onClick={() => navigate(`/chatroom/${post.chatroomId}`)}
         >
           <img src={post.imageUrl} alt="Post content" className="w-full h-auto max-h-[500px] object-cover" />
         </div>
@@ -211,7 +182,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
           <ThumbsUp className={`mr-1 h-4 w-4 ${hasReacted('like') ? 'text-blue-500 fill-blue-500' : ''}`} />
           <span>Like</span>
         </Button>
-        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => navigate(`/chatroom/${post.conversationId}`)}>
+        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => navigate(`/chatroom/${post.chatroomId}`)}>
           <MessageCircle className="mr-1 h-4 w-4" />
           <span>Chat</span>
         </Button>
@@ -252,4 +223,3 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
 };
 
 export default PostCard;
-
