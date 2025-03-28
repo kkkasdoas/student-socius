@@ -2,14 +2,13 @@
 export type User = {
   id: string;
   displayName: string;
+  login_name?: string;
   bio?: string;
   university?: string;
   verificationStatus: 'verified' | 'unverified';
   profilePictureUrl?: string;
   authProvider: 'google' | 'microsoft' | 'apple';
   loginEmail?: string;
-  login_name?: string;
-  lastLogin?: Date;
   blockStatus: boolean;
   isDeleted: boolean;
   createdAt: Date;
@@ -21,16 +20,15 @@ export type Post = {
   userId: string;
   title: string;
   content: string;
-  university: string;
-  conversationId?: string;
+  university?: string;
   imageUrl?: string;
   channelType: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
   isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
-  user: User;
-  reactions: Reaction[];
+  user?: User;
+  reactions?: Reaction[];
 };
 
 export type Comment = {
@@ -39,7 +37,7 @@ export type Comment = {
   userId: string;
   content: string;
   createdAt: Date;
-  user: User;
+  user?: User;
 };
 
 export type Reaction = {
@@ -56,36 +54,26 @@ export type FilterOption = 'Hot' | 'New' | 'Study' | 'Fun' | 'Drama' | 'All';
 
 export type GenderFilter = 'All' | 'Male' | 'Female' | 'L' | 'G' | 'B' | 'T';
 
-export type ConversationType = 'private' | 'chatroom';
-
-export type Conversation = {
+export type ChatRoom = {
   id: string;
-  type: ConversationType;
-  chatroomName?: string;
-  photo?: string;
   postId?: string;
-  lastMessageContent?: string;
-  lastMessageSenderId?: string;
-  lastMessageTimestamp?: Date;
+  chatroomName: string;
+  chatroomPhoto?: string;
+  participants?: User[];
+  messages?: ChatroomMessage[];
+  lastMessage?: ChatroomMessage;
   createdAt: Date;
   updatedAt: Date;
-  participants?: User[];
 };
 
-export type ConversationParticipant = {
-  conversationId: string;
-  userId: string;
-  user?: User;
-};
-
-export type Message = {
+export type ChatroomMessage = {
   id: string;
-  conversationId: string;
+  chatroomId: string;
   senderId: string;
   content: string;
   createdAt: Date;
-  isRead: boolean;
-  isEdited: boolean;
+  isRead?: boolean;
+  isEdited?: boolean;
   replyToId?: string;
   sender?: User;
 };
@@ -104,11 +92,6 @@ export type UserSettings = {
 export type BlockedUser = {
   blockerId: string;
   blockedId: string;
-};
-
-export type MutedUser = {
-  muterId: string;
-  mutedId: string;
 };
 
 export type SavedPost = {
@@ -142,14 +125,6 @@ export type MessageReport = {
   reporterId: string;
   messageId: string;
   reason: string;
-  createdAt: Date;
-};
-
-export type MessageReaction = {
-  id: string;
-  messageId: string;
-  userId: string;
-  reaction: string;
   createdAt: Date;
 };
 

@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, Send, Paperclip, Mic, Image as ImageIcon, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChatRoom, ChatroomMessage } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const ChatRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -16,144 +18,200 @@ const ChatRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
+  const [messages, setMessages] = useState<ChatroomMessage[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Fetch the chatroom data 
   useEffect(() => {
-    // In a real app, we would fetch this data from the API
-    // For now, we'll create a mock chatroom
-    const mockChatRoom: ChatRoom = {
-      id: roomId || 'unknown',
-      chatroomName: 'Economics Study Group',
-      chatroomPhoto: 'https://i.pravatar.cc/150?img=group',
-      participants: currentUser ? [currentUser] : [],
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date()
+    const fetchChatRoom = async () => {
+      if (!roomId) return;
+      
+      try {
+        // Fetch chatroom
+        const { data: roomData, error: roomError } = await supabase
+          .from('chat_rooms')
+          .select('*')
+          .eq('id', roomId)
+          .single();
+        
+        if (roomError) throw roomError;
+        
+        // Fetch messages
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('chatroom_messages')
+          .select('*, profiles:sender_id(*)')
+          .eq('chatroom_id', roomId)
+          .order('created_at', { ascending: true });
+        
+        if (messagesError) throw messagesError;
+        
+        // Fetch participants
+        const { data: participantsData, error: participantsError } = await supabase
+          .from('chat_room_participants')
+          .select('*, profiles:user_id(*)')
+          .eq('chatroom_id', roomId);
+        
+        if (participantsError) throw participantsError;
+        
+        // Process the data
+        const formattedMessages = messagesData.map((msg: any): ChatroomMessage => ({
+          id: msg.id,
+          chatroomId: msg.chatroom_id,
+          senderId: msg.sender_id,
+          content: msg.content,
+          createdAt: new Date(msg.created_at),
+          isRead: msg.is_read,
+          isEdited: msg.is_edited,
+          replyToId: msg.reply_to_id,
+          sender: msg.profiles ? {
+            id: msg.profiles.id,
+            displayName: msg.profiles.display_name,
+            login_name: msg.profiles.login_name,
+            bio: msg.profiles.bio,
+            university: msg.profiles.university,
+            verificationStatus: msg.profiles.verification_status,
+            profilePictureUrl: msg.profiles.profile_picture_url,
+            authProvider: msg.profiles.auth_provider,
+            loginEmail: msg.profiles.login_email,
+            blockStatus: msg.profiles.block_status,
+            isDeleted: msg.profiles.is_deleted,
+            createdAt: new Date(msg.profiles.created_at),
+            updatedAt: new Date(msg.profiles.updated_at)
+          } : undefined
+        }));
+        
+        const formattedParticipants = participantsData.map((p: any) => ({
+          id: p.id,
+          chatroomId: p.chatroom_id,
+          userId: p.user_id,
+          joinedAt: p.joined_at,
+          user: p.profiles ? {
+            id: p.profiles.id,
+            displayName: p.profiles.display_name,
+            login_name: p.profiles.login_name,
+            bio: p.profiles.bio,
+            university: p.profiles.university,
+            verificationStatus: p.profiles.verification_status,
+            profilePictureUrl: p.profiles.profile_picture_url,
+            authProvider: p.profiles.auth_provider,
+            loginEmail: p.profiles.login_email,
+            blockStatus: p.profiles.block_status,
+            isDeleted: p.profiles.is_deleted,
+            createdAt: new Date(p.profiles.created_at),
+            updatedAt: new Date(p.profiles.updated_at)
+          } : null
+        }));
+        
+        // Create chatroom object
+        const room: ChatRoom = {
+          id: roomData.id,
+          postId: roomData.post_id,
+          chatroomName: roomData.chatroom_name,
+          chatroomPhoto: roomData.chatroom_photo,
+          messages: formattedMessages,
+          participants: formattedParticipants.map(p => p.user).filter(Boolean),
+          lastMessage: formattedMessages.length > 0 ? formattedMessages[formattedMessages.length - 1] : undefined,
+          createdAt: new Date(roomData.created_at),
+          updatedAt: new Date(roomData.updated_at)
+        };
+        
+        setChatRoom(room);
+        setMessages(formattedMessages);
+        setParticipants(formattedParticipants);
+        
+        // Subscribe to new messages
+        const subscription = supabase
+          .channel(`chatroom:${roomId}`)
+          .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'chatroom_messages',
+            filter: `chatroom_id=eq.${roomId}`
+          }, async (payload) => {
+            // Fetch the complete message with sender info
+            const { data, error } = await supabase
+              .from('chatroom_messages')
+              .select('*, profiles:sender_id(*)')
+              .eq('id', payload.new.id)
+              .single();
+              
+            if (error) {
+              console.error('Error fetching new message:', error);
+              return;
+            }
+            
+            const newMessage: ChatroomMessage = {
+              id: data.id,
+              chatroomId: data.chatroom_id,
+              senderId: data.sender_id,
+              content: data.content,
+              createdAt: new Date(data.created_at),
+              isRead: data.is_read,
+              isEdited: data.is_edited,
+              replyToId: data.reply_to_id,
+              sender: data.profiles ? {
+                id: data.profiles.id,
+                displayName: data.profiles.display_name,
+                login_name: data.profiles.login_name,
+                bio: data.profiles.bio,
+                university: data.profiles.university,
+                verificationStatus: data.profiles.verification_status,
+                profilePictureUrl: data.profiles.profile_picture_url,
+                authProvider: data.profiles.auth_provider,
+                loginEmail: data.profiles.login_email,
+                blockStatus: data.profiles.block_status,
+                isDeleted: data.profiles.is_deleted,
+                createdAt: new Date(data.profiles.created_at),
+                updatedAt: new Date(data.profiles.updated_at)
+              } : undefined
+            };
+            
+            setMessages(prevMessages => [...prevMessages, newMessage]);
+          })
+          .subscribe();
+        
+        // Check if current user is a participant, if not, add them
+        if (currentUser && !participantsData.some((p: any) => p.user_id === currentUser.id)) {
+          await supabase
+            .from('chat_room_participants')
+            .insert([
+              { chatroom_id: roomId, user_id: currentUser.id }
+            ]);
+        }
+      } catch (error) {
+        console.error('Error fetching chatroom data:', error);
+        toast.error('Failed to load chatroom');
+      } finally {
+        setIsLoading(false);
+      }
     };
     
-    // Generate some mock messages
-    const mockMessages: ChatroomMessage[] = [
-      {
-        id: 'msg-1',
-        chatroomId: roomId || '',
-        senderId: '123',
-        content: 'Hello everyone! Welcome to the Economics Study Group.',
-        createdAt: new Date(new Date().getTime() - 48 * 60 * 60 * 1000),
-        sender: {
-          id: '123',
-          displayName: 'James Wilson',
-          university: 'TDTU University',
-          verificationStatus: 'verified',
-          authProvider: 'google',
-          profilePictureUrl: 'https://i.pravatar.cc/150?img=33',
-          blockStatus: false,
-          isDeleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      },
-      {
-        id: 'msg-2',
-        chatroomId: roomId || '',
-        senderId: currentUser?.id || '',
-        content: 'Hi James! Thanks for creating this group. I have a question about the upcoming exam.',
-        createdAt: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-        sender: currentUser || {
-          id: 'user-current',
-          displayName: 'Current User',
-          university: 'TDTU University',
-          verificationStatus: 'verified',
-          authProvider: 'google',
-          profilePictureUrl: 'https://i.pravatar.cc/150?img=45',
-          blockStatus: false,
-          isDeleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      },
-      {
-        id: 'msg-3',
-        chatroomId: roomId || '',
-        senderId: '123',
-        content: 'Sure! What questions do you have?',
-        createdAt: new Date(new Date().getTime() - 22 * 60 * 60 * 1000),
-        sender: {
-          id: '123',
-          displayName: 'James Wilson',
-          university: 'TDTU University',
-          verificationStatus: 'verified',
-          authProvider: 'google',
-          profilePictureUrl: 'https://i.pravatar.cc/150?img=33',
-          blockStatus: false,
-          isDeleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      },
-      {
-        id: 'msg-4',
-        chatroomId: roomId || '',
-        senderId: '456',
-        content: 'I\'d like to know which chapters will be covered?',
-        createdAt: new Date(new Date().getTime() - 20 * 60 * 60 * 1000),
-        sender: {
-          id: '456',
-          displayName: 'Sarah Johnson',
-          university: 'TDTU University',
-          verificationStatus: 'verified',
-          authProvider: 'microsoft',
-          profilePictureUrl: 'https://i.pravatar.cc/150?img=23',
-          blockStatus: false,
-          isDeleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      }
-    ];
-    
-    mockChatRoom.messages = mockMessages;
-    mockChatRoom.lastMessage = mockMessages[mockMessages.length - 1];
-    
-    setChatRoom(mockChatRoom);
+    fetchChatRoom();
   }, [roomId, currentUser]);
   
-  const handleSendMessage = () => {
-    if (message.trim() && chatRoom) {
-      // In a real app, this would send the message to the API
-      console.log('Sending message to chatroom:', message);
+  const handleSendMessage = async () => {
+    if (!message.trim() || !chatRoom || !currentUser) return;
+    
+    try {
+      // Insert the message into Supabase
+      const { error } = await supabase
+        .from('chatroom_messages')
+        .insert([
+          {
+            chatroom_id: chatRoom.id,
+            sender_id: currentUser.id,
+            content: message
+          }
+        ]);
       
-      // Create a new message
-      const newMessage: ChatroomMessage = {
-        id: `msg-${Date.now()}`,
-        chatroomId: chatRoom.id,
-        senderId: currentUser?.id || '',
-        content: message,
-        createdAt: new Date(),
-        sender: currentUser || {
-          id: 'user-current',
-          displayName: 'Current User',
-          university: 'TDTU University',
-          verificationStatus: 'verified',
-          authProvider: 'google',
-          profilePictureUrl: 'https://i.pravatar.cc/150?img=45',
-          blockStatus: false,
-          isDeleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      };
+      if (error) throw error;
       
-      // Update the chatroom with the new message
-      setChatRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastMessage: newMessage
-        };
-      });
-      
+      // Clear the input
       setMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
     }
   };
   
@@ -164,11 +222,21 @@ const ChatRoomPage: React.FC = () => {
     }
   };
   
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="h-screen flex items-center justify-center">
+          <p className="text-gray-500">Loading chatroom...</p>
+        </div>
+      </Layout>
+    );
+  }
+  
   if (!chatRoom) {
     return (
       <Layout>
         <div className="h-screen flex items-center justify-center">
-          <p>Loading chatroom...</p>
+          <p className="text-gray-500">Chatroom not found</p>
         </div>
       </Layout>
     );
@@ -201,7 +269,7 @@ const ChatRoomPage: React.FC = () => {
           <div className="flex-1">
             <h2 className="font-medium">{chatRoom.chatroomName || "Chatroom"}</h2>
             <p className="text-xs text-gray-500">
-              {chatRoom.participants.length} participants
+              {participants.length} participants
             </p>
           </div>
           
@@ -216,7 +284,7 @@ const ChatRoomPage: React.FC = () => {
         
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
-          <MessageList messages={chatRoom.messages} chatRoom={chatRoom} isChatroom={true} />
+          <MessageList messages={messages} />
         </div>
         
         {/* Message Input */}
@@ -235,8 +303,7 @@ const ChatRoomPage: React.FC = () => {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Type a message..."
-              className="min-h-[40px] max-h-[120px] pr-12 py-2 resize-none"
-              multiline="true"
+              className="min-h-[40px] max-h-[120px] pr-12 py-2"
             />
             
             <Button 

@@ -1,5 +1,4 @@
-
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import HomePage from '@/pages/HomePage';
@@ -17,6 +16,7 @@ import NotificationsSettingsPage from '@/pages/NotificationsSettingsPage';
 import LanguageSettingsPage from '@/pages/LanguageSettingsPage';
 import BlockedUsersPage from '@/pages/BlockedUsersPage';
 import UserProfilePage from '@/pages/UserProfilePage';
+import SecureRoute from '@/components/SecureRoute';
 import './App.css';
 
 // Import Inter font
@@ -32,20 +32,73 @@ function App() {
       <BrowserRouter>
         <div className="font-inter">
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<HomePage />} />
-            <Route path="/feed" element={<Feed />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
-            <Route path="/settings/language" element={<LanguageSettingsPage />} />
-            <Route path="/settings/blocked-users" element={<BlockedUsersPage />} />
-            <Route path="/edit-profile" element={<EditProfilePage />} />
-            <Route path="/messages" element={<MessagesPage />} />
-            <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
-            <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />
-            <Route path="/chatroom-info/:roomId" element={<ChatroomInfoPage />} />
-            <Route path="/create-post" element={<CreatePostPage />} />
-            <Route path="/user/:userId" element={<UserProfilePage />} />
+            
+            {/* Protected routes */}
+            <Route path="/feed" element={
+              <SecureRoute>
+                <Feed />
+              </SecureRoute>
+            } />
+            <Route path="/settings" element={
+              <SecureRoute>
+                <SettingsPage />
+              </SecureRoute>
+            } />
+            <Route path="/settings/notifications" element={
+              <SecureRoute>
+                <NotificationsSettingsPage />
+              </SecureRoute>
+            } />
+            <Route path="/settings/language" element={
+              <SecureRoute>
+                <LanguageSettingsPage />
+              </SecureRoute>
+            } />
+            <Route path="/settings/blocked-users" element={
+              <SecureRoute>
+                <BlockedUsersPage />
+              </SecureRoute>
+            } />
+            <Route path="/edit-profile" element={
+              <SecureRoute>
+                <EditProfilePage />
+              </SecureRoute>
+            } />
+            <Route path="/messages" element={
+              <SecureRoute>
+                <MessagesPage />
+              </SecureRoute>
+            } />
+            <Route path="/direct-message/:userId" element={
+              <SecureRoute>
+                <DirectMessagePage />
+              </SecureRoute>
+            } />
+            <Route path="/chatroom/:roomId" element={
+              <SecureRoute>
+                <ChatRoomPage />
+              </SecureRoute>
+            } />
+            <Route path="/chatroom-info/:roomId" element={
+              <SecureRoute>
+                <ChatroomInfoPage />
+              </SecureRoute>
+            } />
+            <Route path="/create-post" element={
+              <SecureRoute>
+                <CreatePostPage />
+              </SecureRoute>
+            } />
+            <Route path="/user/:userId" element={
+              <SecureRoute>
+                <UserProfilePage />
+              </SecureRoute>
+            } />
+            
+            {/* Other routes */}
             <Route path="/faq" element={<NotFound />} />
             <Route path="/contact" element={<NotFound />} />
             <Route path="/privacy-policy" element={<NotFound />} />
