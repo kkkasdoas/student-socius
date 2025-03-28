@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Post, ChannelType, GenderFilter } from '@/types';
 import type { FilterOption } from '@/types';
 import { 
@@ -35,7 +35,33 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
   const [filterOption, setFilterOption] = useState<FilterOption>('Hot');
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showHeader, setShowHeader] = useState(true);
+  const lastScrollY = useRef(0);
+  const headerRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useAuth();
+  
+  // Handle scroll events to hide/show header
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        // Scrolling down - hide header
+        setShowHeader(false);
+      } else {
+        // Scrolling up - show header
+        setShowHeader(true);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
   
   // Get the active channel from session storage on component mount
   useEffect(() => {
@@ -120,8 +146,13 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* New Top Navigation */}
-      <div className="flex flex-col bg-white border-b border-cendy-border shadow-sm">
+      {/* New Top Navigation - Hide on scroll down */}
+      <div 
+        ref={headerRef}
+        className={`flex flex-col bg-white border-b border-cendy-border shadow-sm transition-transform duration-300 sticky top-0 z-20 ${
+          showHeader ? 'translate-y-0' : '-translate-y-full'
+        }`}
+      >
         {/* Channel Selector */}
         <div className="p-3 flex items-center gap-2">
           <Select value={activeChannel} onValueChange={(value) => {
@@ -249,7 +280,6 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
               <PostCard 
                 key={post.id} 
                 post={post}
-                channelType={activeChannel}
               />
             ))}
           </div>

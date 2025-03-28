@@ -1,197 +1,168 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
-import { ChevronLeft, Camera, Loader } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ChevronLeft, Camera, Edit } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import Layout from '@/components/Layout';
 
 const EditProfilePage: React.FC = () => {
+  const { currentUser, updateUserProfile } = useAuth();
+  const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
+  const [bio, setBio] = useState(currentUser?.bio || '');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profilePictureUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
   
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  useEffect(() => {
-    if (currentUser) {
-      setDisplayName(currentUser.displayName);
-      setBio(currentUser.bio || '');
-      setProfileImage(currentUser.profilePictureUrl || null);
-    }
-  }, [currentUser]);
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // In a real app, you would upload the image to your server first
+      // For demo purposes, we're just setting it locally
+      const imageUrl = URL.createObjectURL(file);
+      setProfileImage(imageUrl);
     }
   };
   
-  const handleSave = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!displayName.trim()) {
       toast.error('Display name cannot be empty');
       return;
     }
     
+    setIsProcessing(true);
+    
     try {
-      setIsSaving(true);
-      
-      // In a real app, we would send this data to the API
-      // Here, we'll just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Saving profile:', {
+      // In a real app, this would send the data to your API
+      await updateUserProfile({
         displayName,
         bio,
-        profilePictureUrl: profileImage
+        profilePictureUrl: profileImage || undefined
       });
       
       toast.success('Profile updated successfully');
-      navigate('/settings');
+      navigate(-1);
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile. Please try again.');
+      toast.error('Failed to update profile');
     } finally {
-      setIsSaving(false);
+      setIsProcessing(false);
     }
   };
   
   return (
     <Layout>
-      <div className="h-screen flex flex-col bg-white">
+      <div className="flex flex-col min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 flex items-center p-4 z-10">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="mr-2" 
-            onClick={() => navigate('/settings')}
+        <div className="flex items-center p-4 bg-white border-b border-gray-200">
+          <button 
+            onClick={() => navigate(-1)}
+            className="mr-2 p-1 rounded-full hover:bg-gray-100"
           >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          
-          <h1 className="text-xl font-semibold flex-1">Edit Profile</h1>
-          
-          <Button 
-            onClick={handleSave} 
-            disabled={isSaving || !displayName.trim()}
-            className="bg-cendy-primary hover:bg-cendy-primary/90"
-          >
-            {isSaving ? (
-              <>
-                <Loader className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save'
-            )}
-          </Button>
+            <ChevronLeft className="h-5 w-5 text-gray-600" />
+          </button>
+          <h1 className="text-xl font-semibold text-gray-800">Edit Profile</h1>
         </div>
         
-        {/* Profile Picture */}
-        <div className="p-6 flex flex-col items-center">
-          <div className="relative">
-            <Avatar className="w-24 h-24 border-2 border-white shadow-lg">
-              <AvatarImage 
-                src={profileImage || "https://i.pravatar.cc/150?img=default"} 
-                alt={displayName} 
-              />
-              <AvatarFallback>{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            
-            <label htmlFor="profile-picture" className="absolute bottom-0 right-0 bg-cendy-primary text-white p-2 rounded-full cursor-pointer">
-              <Camera className="h-4 w-4" />
-              <input 
-                id="profile-picture" 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                onChange={handleImageChange}
-              />
-            </label>
-          </div>
-          
-          <p className="text-sm text-gray-500 mt-3">
-            Tap on the camera icon to change your profile picture
-          </p>
-        </div>
-        
-        {/* Form */}
-        <div className="p-6 space-y-6">
-          <div>
-            <label htmlFor="display-name" className="block text-sm font-medium text-gray-700 mb-1">
-              Display Name
-            </label>
-            <Input
-              id="display-name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your display name"
-              className="w-full"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
-              Bio
-            </label>
-            <Textarea
-              id="bio"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell us about yourself..."
-              className="w-full min-h-[120px]"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {bio.length}/200 characters
-            </p>
-          </div>
-          
-          <div className="pt-4">
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Account Details
-            </label>
-            
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <div>
-                <div className="text-xs text-gray-500">Email</div>
-                <div className="text-sm">{currentUser?.loginEmail || 'Not set'}</div>
-              </div>
-              
-              <div>
-                <div className="text-xs text-gray-500">University</div>
-                <div className="text-sm">{currentUser?.university || 'Not set'}</div>
-              </div>
-              
-              <div>
-                <div className="text-xs text-gray-500">Account Status</div>
-                <div className="text-sm flex items-center">
-                  {currentUser?.verificationStatus === 'verified' ? (
-                    <>
-                      <span className="text-green-600">Verified</span>
-                      <span className="ml-1 text-green-600">✓</span>
-                    </>
+        {/* Content */}
+        <div className="flex-1 p-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Picture */}
+            <div className="flex flex-col items-center">
+              <div className="relative mb-4">
+                <div 
+                  className="w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-md bg-gray-200 flex items-center justify-center"
+                  onClick={handleImageClick}
+                >
+                  {profileImage ? (
+                    <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-yellow-600">Unverified</span>
+                    <span className="text-2xl font-medium text-gray-400">
+                      {currentUser?.displayName?.substring(0, 2) || 'U'}
+                    </span>
                   )}
                 </div>
+                <button 
+                  type="button"
+                  className="absolute bottom-0 right-0 bg-cendy-primary text-white rounded-full p-2 shadow-md"
+                  onClick={handleImageClick}
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+              </div>
+              <button 
+                type="button"
+                className="text-cendy-primary text-sm font-medium flex items-center"
+                onClick={handleImageClick}
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Change profile picture
+              </button>
+            </div>
+            
+            {/* Profile Info */}
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Profile Information
+              </label>
+              
+              <div>
+                <label htmlFor="displayName" className="block text-xs text-gray-500 mb-1">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  id="displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary/50"
+                  placeholder="Your display name"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="bio" className="block text-xs text-gray-500 mb-1">
+                  Bio
+                </label>
+                <textarea
+                  id="bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary/50 min-h-[100px]"
+                  placeholder="Tell others about yourself..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {bio.length}/200 characters
+                </p>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              These details cannot be modified from this screen.
-            </p>
-          </div>
+            
+            {/* Submit Button */}
+            <div className="pt-4">
+              <Button
+                type="submit"
+                className="w-full h-12"
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
     </Layout>

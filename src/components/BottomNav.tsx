@@ -1,18 +1,46 @@
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, MessageCircle, Settings } from 'lucide-react';
 
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [visible, setVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        // Scrolling down - hide navbar
+        setVisible(false);
+      } else {
+        // Scrolling up - show navbar
+        setVisible(true);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
   
   const isActive = (path: string) => {
     return location.pathname === path;
   };
   
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-cendy-border flex items-center justify-around shadow-md z-10">
+    <div 
+      className={`fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-cendy-border flex items-center justify-around shadow-md z-10 transition-transform duration-300 ${
+        visible ? 'translate-y-0' : 'translate-y-full'
+      }`}
+    >
       <NavButton 
         icon={<Home className="w-6 h-6" />} 
         label="Home" 

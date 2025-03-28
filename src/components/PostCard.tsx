@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow, differenceInDays, format, differenceInMinutes } from 'date-fns';
 import {
   ThumbsUp,
@@ -7,21 +6,15 @@ import {
   Smile,
   MessageCircle,
   Share,
-  MoreVertical,
-  Bookmark,
-  Flag,
-  Facebook as FacebookIcon,
-  Twitter as TwitterIcon,
-  Linkedin as LinkedinIcon,
-  Link2 as Link2Icon,
   Edit,
   Trash,
   EyeOff,
+  Bookmark,
+  Flag,
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogTitle, DialogFooter, DialogHeader, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Post, Reaction, SavedPost, HiddenPost, PostReport } from '@/types';
 import { useNavigate } from 'react-router-dom';
@@ -46,6 +39,10 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [longPressTimeout, setLongPressTimeout] = useState<NodeJS.Timeout | null>(null);
+  const contextAreaRef = useRef<HTMLDivElement>(null);
+  
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const isOwnPost = currentUser?.id === post.user.id;
@@ -73,11 +70,9 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     // Initialize post state
     if (currentUser) {
       // In a real app, check if post is saved by this user
-      // SELECT * FROM saved_posts WHERE userId = ? AND postId = ?
       setIsSaved(false);
       
       // In a real app, check if post is hidden by this user
-      // SELECT * FROM hidden_posts WHERE userId = ? AND postId = ?
       setIsHidden(false);
     }
     
@@ -87,11 +82,11 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
 
   const totalReactions = Object.values(reactionGroups).reduce((sum, count) => sum + count, 0);
 
-  const hasReacted = (type: string) => {
+  const hasReacted = (type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry') => {
     return userReactions.some(reaction => reaction.type === type);
   };
 
-  const handleReaction = (type: string) => {
+  const handleReaction = (type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry') => {
     if (!currentUser) {
       toast.error('Please log in to react to posts');
       return;
@@ -135,7 +130,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
           id: `reaction-${Date.now()}`,
           postId: post.id,
           userId: currentUser.id,
-          type: type as 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry',
+          type: type,
           createdAt: new Date()
         };
         setUserReactions([newReaction]);
@@ -145,6 +140,8 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
         });
       }
     }
+    
+    setShowContextMenu(false);
   };
 
   const navigateToUserProfile = (userId: string, event: React.MouseEvent) => {
@@ -160,6 +157,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   
   const handleShare = () => {
     setShowShareSheet(true);
+    setShowContextMenu(false);
   };
   
   const handleSavePost = () => {
@@ -179,6 +177,8 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
       setIsSaved(true);
       toast.success('Post saved for later');
     }
+    
+    setShowContextMenu(false);
   };
   
   const handleHidePost = () => {
@@ -198,10 +198,13 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
       setIsHidden(true);
       toast.success('Post hidden from your feed');
     }
+    
+    setShowContextMenu(false);
   };
   
   const handleReportPost = () => {
     setShowReportDialog(true);
+    setShowContextMenu(false);
   };
   
   const submitReport = () => {
@@ -232,6 +235,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     }
     
     setShowEditDialog(true);
+    setShowContextMenu(false);
   };
   
   const submitEdit = () => {
@@ -255,6 +259,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   
   const handleDeletePost = () => {
     setShowDeleteConfirm(true);
+    setShowContextMenu(false);
   };
   
   const confirmDelete = () => {
@@ -298,6 +303,34 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     return timeAgo;
   };
 
+  // Long press handling
+  const handleLongPressStart = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    
+    if ('touches' in e) {
+      // Touch event (mobile)
+      const timeout = setTimeout(() => {
+        setShowContextMenu(true);
+      }, 500);
+      setLongPressTimeout(timeout);
+    } else {
+      // Right-click (desktop)
+      setShowContextMenu(true);
+    }
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimeout) {
+      clearTimeout(longPressTimeout);
+      setLongPressTimeout(null);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowContextMenu(true);
+  };
+
   // Format timestamp
   const formattedTime = formatTimeAgo(post.createdAt);
 
@@ -337,157 +370,178 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
             </div>
           </div>
         </div>
+      </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="-mr-2">
-              <MoreVertical className="h-5 w-5 text-gray-500" />
-              <span className="sr-only">More options</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+      {/* Post Content - Tap and Hold Area */}
+      <div 
+        ref={contextAreaRef}
+        className="cursor-pointer"
+        onClick={navigateToChatroom}
+        onTouchStart={handleLongPressStart}
+        onTouchEnd={handleLongPressEnd}
+        onTouchCancel={handleLongPressEnd}
+        onMouseDown={handleLongPressStart}
+        onMouseUp={handleLongPressEnd}
+        onMouseLeave={handleLongPressEnd}
+        onContextMenu={handleContextMenu}
+      >
+        {/* Post Title */}
+        <div className="px-4 pb-2 text-lg font-semibold">
+          {post.title}
+        </div>
+
+        {/* Post Content */}
+        <div className="px-4 pb-4 text-gray-700">
+          {post.content}
+        </div>
+
+        {/* Post Image (if available) */}
+        {post.imageUrl && (
+          <div>
+            <img src={post.imageUrl} alt="Post content" className="w-full h-auto max-h-[500px] object-cover" />
+          </div>
+        )}
+
+        {/* Reactions Section */}
+        {totalReactions > 0 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center text-gray-500 text-sm">
+            <div className="flex -space-x-1 mr-2">
+              {reactionGroups.heart > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-500">
+                  <Heart className="w-3 h-3 fill-current" />
+                </span>
+              )}
+              {reactionGroups.like > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-500">
+                  <ThumbsUp className="w-3 h-3" />
+                </span>
+              )}
+              {reactionGroups.laugh > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-100 text-yellow-500">
+                  <Smile className="w-3 h-3" />
+                </span>
+              )}
+            </div>
+            <span>
+              {totalReactions} {totalReactions === 1 ? 'reaction' : 'reactions'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Telegram-style Context Menu Dialog */}
+      <Dialog open={showContextMenu} onOpenChange={setShowContextMenu}>
+        <DialogContent className="p-0 max-w-[280px] rounded-lg shadow-lg overflow-hidden">
+          {/* Reactions Section */}
+          <div className="p-3 border-b border-gray-100 flex justify-around">
+            <button 
+              onClick={() => handleReaction('like')} 
+              className="text-lg hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              <ThumbsUp className={`h-6 w-6 ${hasReacted('like') ? 'text-blue-500 fill-blue-500' : 'text-gray-600'}`} />
+            </button>
+            <button 
+              onClick={() => handleReaction('heart')} 
+              className="text-lg hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              <Heart className={`h-6 w-6 ${hasReacted('heart') ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
+            </button>
+            <button 
+              onClick={() => handleReaction('laugh')} 
+              className="text-lg hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              <Smile className={`h-6 w-6 ${hasReacted('laugh') ? 'text-yellow-500 fill-yellow-500' : 'text-gray-600'}`} />
+            </button>
+            <button 
+              onClick={() => handleReaction('wow')} 
+              className="text-lg hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              <span className={`text-2xl ${hasReacted('wow') ? 'text-yellow-500' : 'text-gray-600'}`}>😲</span>
+            </button>
+            <button 
+              onClick={() => handleReaction('sad')} 
+              className="text-lg hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              <span className={`text-2xl ${hasReacted('sad') ? 'text-blue-500' : 'text-gray-600'}`}>😢</span>
+            </button>
+            <button 
+              onClick={() => handleReaction('angry')} 
+              className="text-lg hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              <span className={`text-2xl ${hasReacted('angry') ? 'text-red-500' : 'text-gray-600'}`}>😡</span>
+            </button>
+          </div>
+          
+          {/* Actions Section */}
+          <div className="py-1">
             {isOwnPost ? (
-              // Options for own posts
+              // Own post actions
               <>
-                <DropdownMenuItem onClick={handleSavePost}>
-                  <Bookmark className="mr-2 h-4 w-4" />
-                  <span>{isSaved ? 'Unsave' : 'Save'}</span>
-                </DropdownMenuItem>
+                <ContextMenuItem 
+                  icon={<Bookmark className="h-5 w-5" />} 
+                  label={isSaved ? "Unsave" : "Save"}
+                  onClick={handleSavePost}
+                />
                 {canEdit && (
-                  <DropdownMenuItem onClick={handleEditPost}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    <span>Edit</span>
-                  </DropdownMenuItem>
+                  <ContextMenuItem 
+                    icon={<Edit className="h-5 w-5" />} 
+                    label="Edit" 
+                    onClick={handleEditPost}
+                  />
                 )}
-                <DropdownMenuItem onClick={handleShare}>
-                  <Share className="mr-2 h-4 w-4" />
-                  <span>Share</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleDeletePost} className="text-red-500">
-                  <Trash className="mr-2 h-4 w-4" />
-                  <span>Delete</span>
-                </DropdownMenuItem>
+                <ContextMenuItem 
+                  icon={<Share className="h-5 w-5" />} 
+                  label="Share" 
+                  onClick={handleShare}
+                />
+                <ContextMenuItem 
+                  icon={<Trash className="h-5 w-5" />} 
+                  label="Delete" 
+                  onClick={handleDeletePost}
+                  className="text-red-500"
+                />
               </>
             ) : (
-              // Options for other users' posts
+              // Other's post actions
               <>
-                <DropdownMenuItem onClick={handleSavePost}>
-                  <Bookmark className="mr-2 h-4 w-4" />
-                  <span>{isSaved ? 'Unsave' : 'Save'}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleHidePost}>
-                  <EyeOff className="mr-2 h-4 w-4" />
-                  <span>{isHidden ? 'Unhide' : 'Hide'}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleShare}>
-                  <Share className="mr-2 h-4 w-4" />
-                  <span>Share</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleReportPost} className="text-red-500">
-                  <Flag className="mr-2 h-4 w-4" />
-                  <span>Report</span>
-                </DropdownMenuItem>
+                <ContextMenuItem 
+                  icon={<Bookmark className="h-5 w-5" />} 
+                  label={isSaved ? "Unsave" : "Save"}
+                  onClick={handleSavePost}
+                />
+                <ContextMenuItem 
+                  icon={<EyeOff className="h-5 w-5" />} 
+                  label={isHidden ? "Unhide" : "Hide"}
+                  onClick={handleHidePost}
+                />
+                <ContextMenuItem 
+                  icon={<Share className="h-5 w-5" />} 
+                  label="Share" 
+                  onClick={handleShare}
+                />
+                <ContextMenuItem 
+                  icon={<Flag className="h-5 w-5" />} 
+                  label="Report" 
+                  onClick={handleReportPost}
+                  className="text-red-500"
+                />
               </>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Post Title */}
-      <div
-        className="px-4 pb-2 text-lg font-semibold cursor-pointer hover:text-cendy-primary"
-        onClick={navigateToChatroom}
-      >
-        {post.title}
-      </div>
-
-      {/* Post Content */}
-      <div
-        className="px-4 pb-4 text-gray-700 cursor-pointer"
-        onClick={navigateToChatroom}
-      >
-        {post.content}
-      </div>
-
-      {/* Post Image (if available) */}
-      {post.imageUrl && (
-        <div
-          className="cursor-pointer"
-          onClick={navigateToChatroom}
-        >
-          <img src={post.imageUrl} alt="Post content" className="w-full h-auto max-h-[500px] object-cover" />
-        </div>
-      )}
-
-      {/* Reactions Section */}
-      <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-        <div className="flex items-center text-gray-500 text-sm">
-          <div className="flex -space-x-1 mr-2">
-            {reactionGroups.heart > 0 && (
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-500">
-                <Heart className="w-3 h-3 fill-current" />
-              </span>
-            )}
-            {reactionGroups.like > 0 && (
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-500">
-                <ThumbsUp className="w-3 h-3" />
-              </span>
-            )}
-            {reactionGroups.laugh > 0 && (
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-100 text-yellow-500">
-                <Smile className="w-3 h-3" />
-              </span>
-            )}
           </div>
-          <span>
-            {totalReactions > 0 && (
-              <>{totalReactions} {totalReactions === 1 ? 'reaction' : 'reactions'}</>
-            )}
-          </span>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Reaction Buttons */}
-      <div className="flex items-center justify-around px-4 py-2 border-t border-gray-100">
-        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => handleReaction('like')}>
-          <ThumbsUp className={`mr-1 h-4 w-4 ${hasReacted('like') ? 'text-blue-500 fill-blue-500' : ''}`} />
-          <span>Like</span>
-        </Button>
-        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={navigateToChatroom}>
-          <MessageCircle className="mr-1 h-4 w-4" />
-          <span>Chat</span>
-        </Button>
-        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={handleShare}>
-          <Share className="mr-1 h-4 w-4" />
-          <span>Share</span>
-        </Button>
-      </div>
-
-      {/* Share Sheet */}
+      {/* Share Sheet Dialog */}
       <Dialog open={showShareSheet} onOpenChange={setShowShareSheet}>
         <DialogContent className="sm:max-w-md rounded-xl p-0 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
-            <DialogTitle className="text-center">Share this post</DialogTitle>
+            <h3 className="text-center font-medium">Share this post</h3>
           </div>
           <div className="p-6 grid grid-cols-4 gap-4">
-            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
-              <FacebookIcon className="h-8 w-8 text-blue-600 mb-1" />
-              <span className="text-xs">Facebook</span>
-            </Button>
-            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
-              <TwitterIcon className="h-8 w-8 text-blue-400 mb-1" />
-              <span className="text-xs">Twitter</span>
-            </Button>
-            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
-              <LinkedinIcon className="h-8 w-8 text-blue-700 mb-1" />
-              <span className="text-xs">LinkedIn</span>
-            </Button>
-            <Button variant="ghost" className="flex flex-col items-center rounded-lg p-3 h-auto">
-              <Link2Icon className="h-8 w-8 text-gray-800 mb-1" />
-              <span className="text-xs">Copy Link</span>
-            </Button>
+            <ShareOption icon="facebook" label="Facebook" />
+            <ShareOption icon="twitter" label="Twitter" />
+            <ShareOption icon="linkedin" label="LinkedIn" />
+            <ShareOption icon="copy" label="Copy Link" />
           </div>
         </DialogContent>
       </Dialog>
@@ -495,16 +549,16 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
       {/* Report Dialog */}
       <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Report Post</DialogTitle>
-            <DialogDescription>
+          <div>
+            <h3 className="text-lg font-medium mb-2">Report Post</h3>
+            <p className="text-sm text-gray-500 mb-4">
               Tell us why you're reporting this post. Your report will be kept anonymous.
-            </DialogDescription>
-          </DialogHeader>
+            </p>
+          </div>
           
           <div className="mt-4">
             <textarea
-              className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary"
               rows={4}
               placeholder="Please explain why you're reporting this post..."
               value={reportReason}
@@ -512,33 +566,33 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
             />
           </div>
           
-          <DialogFooter className="mt-4">
+          <div className="mt-4 flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setShowReportDialog(false)}>
               Cancel
             </Button>
             <Button onClick={submitReport}>
               Submit Report
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Post</DialogTitle>
-            <DialogDescription>
+          <div>
+            <h3 className="text-lg font-medium mb-2">Edit Post</h3>
+            <p className="text-sm text-gray-500 mb-4">
               You can edit your post within 30 minutes of posting.
-            </DialogDescription>
-          </DialogHeader>
+            </p>
+          </div>
           
           <div className="mt-4 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
                 type="text"
-                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary"
                 value={editTitle}
                 onChange={e => setEditTitle(e.target.value)}
               />
@@ -547,7 +601,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
               <textarea
-                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary"
                 rows={4}
                 value={editContent}
                 onChange={e => setEditContent(e.target.value)}
@@ -555,38 +609,97 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
             </div>
           </div>
           
-          <DialogFooter className="mt-4">
+          <div className="mt-4 flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               Cancel
             </Button>
             <Button onClick={submitEdit}>
               Save Changes
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Post</DialogTitle>
-            <DialogDescription>
+          <div>
+            <h3 className="text-lg font-medium mb-2">Delete Post</h3>
+            <p className="text-sm text-gray-500 mb-4">
               Are you sure you want to delete this post? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
+            </p>
+          </div>
           
-          <DialogFooter className="mt-4">
+          <div className="mt-4 flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
               Delete
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
+  );
+};
+
+// Context Menu Item Component
+interface ContextMenuItemProps {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  className?: string;
+}
+
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ icon, label, onClick, className }) => {
+  return (
+    <button 
+      className={`w-full px-3 py-2.5 flex items-center hover:bg-gray-100 transition-colors ${className || 'text-gray-700'}`}
+      onClick={onClick}
+    >
+      <span className="mr-2 text-gray-500">{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+};
+
+// Share Option Component
+interface ShareOptionProps {
+  icon: 'facebook' | 'twitter' | 'linkedin' | 'copy';
+  label: string;
+}
+
+const ShareOption: React.FC<ShareOptionProps> = ({ icon, label }) => {
+  let iconElement;
+  let iconColorClass;
+  
+  switch (icon) {
+    case 'facebook':
+      iconElement = <div className="text-2xl">📘</div>;
+      iconColorClass = 'bg-blue-50';
+      break;
+    case 'twitter':
+      iconElement = <div className="text-2xl">🐦</div>;
+      iconColorClass = 'bg-blue-50';
+      break;
+    case 'linkedin':
+      iconElement = <div className="text-2xl">🔗</div>;
+      iconColorClass = 'bg-blue-50';
+      break;
+    case 'copy':
+      iconElement = <div className="text-2xl">📋</div>;
+      iconColorClass = 'bg-gray-50';
+      break;
+  }
+  
+  return (
+    <button className="flex flex-col items-center">
+      <div className={`w-12 h-12 rounded-full ${iconColorClass} flex items-center justify-center mb-1`}>
+        {iconElement}
+      </div>
+      <span className="text-xs text-gray-700">{label}</span>
+    </button>
   );
 };
 

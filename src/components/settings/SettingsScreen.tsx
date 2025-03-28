@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   User, Bell, Moon, Sun, HelpCircle, 
   LogOut, ChevronRight, Globe, ShieldAlert, 
-  Info, FileText, Mail, X
+  Info, FileText, Mail
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
@@ -37,7 +37,7 @@ const SettingsScreen: React.FC = () => {
         <div className="p-4 bg-white mb-2 rounded-lg mx-2 mt-2 shadow-sm">
           <div 
             className="flex items-center cursor-pointer" 
-            onClick={() => navigate('/edit-profile')}
+            onClick={() => navigate(`/user/${currentUser?.id}`)}
           >
             <Avatar className="h-14 w-14 border border-gray-200">
               <AvatarImage 
