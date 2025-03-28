@@ -2,7 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Post, ChannelType, GenderFilter } from '@/types';
 import type { FilterOption } from '@/types';
-import { fetchPosts } from '@/utils/supabaseHelpers';
+import { 
+  mockCampusGeneralPosts, 
+  mockForumPosts, 
+  mockCampusCommunityPosts, 
+  mockCommunityPosts
+} from '@/utils/mockData';
 import PostCard from './PostCard';
 import { Search, Filter, ChevronDown, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,8 +36,6 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [showHeader, setShowHeader] = useState(true);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const lastScrollY = useRef(0);
   const headerRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useAuth();
@@ -68,26 +71,47 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
     }
   }, []);
   
-  // Fetch posts from Supabase
-  useEffect(() => {
-    const loadPosts = async () => {
-      setIsLoading(true);
-      try {
-        const userUniversity = currentUser?.university || university;
-        const fetchedPosts = await fetchPosts(activeChannel, userUniversity);
-        setPosts(fetchedPosts);
-      } catch (error) {
-        console.error('Error loading posts:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Get posts based on active channel and user's university
+  const getPosts = (): Post[] => {
+    const userUniversity = currentUser?.university || university;
     
-    loadPosts();
-  }, [activeChannel, university, currentUser?.university]);
+    let posts: Post[] = [];
+    
+    // Fetch posts based on channel type and university
+    switch (activeChannel) {
+      case 'CampusGeneral':
+        // Filter posts for the user's university
+        posts = mockCampusGeneralPosts.filter(post => 
+          post.university === userUniversity && post.channelType === 'CampusGeneral'
+        );
+        break;
+      case 'Forum':
+        // Forum posts are for all universities
+        posts = mockForumPosts.filter(post => 
+          post.channelType === 'Forum'
+        );
+        break;
+      case 'CampusCommunity':
+        // Filter posts for the user's university
+        posts = mockCampusCommunityPosts.filter(post => 
+          post.university === userUniversity && post.channelType === 'CampusCommunity'
+        );
+        break;
+      case 'Community':
+        // Community posts are for all universities
+        posts = mockCommunityPosts.filter(post => 
+          post.channelType === 'Community'
+        );
+        break;
+      default:
+        break;
+    }
+    
+    return posts;
+  };
   
   // Filter and sort posts
-  const filteredPosts = posts.filter(post => {
+  const filteredPosts = getPosts().filter(post => {
     // Search filter
     if (searchQuery) {
       return post.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -105,7 +129,7 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
     if (filterOption === 'Hot') {
       return (b.reactions?.length || 0) - (a.reactions?.length || 0);
     } else if (filterOption === 'New') {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
     return 0;
   });
@@ -250,11 +274,7 @@ const ChannelTabs: React.FC<ChannelTabsProps> = ({ university }) => {
       
       {/* Posts List */}
       <div className="flex-1 overflow-y-auto bg-cendy-bg">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-40">
-            <p className="text-gray-500">Loading posts...</p>
-          </div>
-        ) : filteredPosts.length > 0 ? (
+        {filteredPosts.length > 0 ? (
           <div>
             {filteredPosts.map(post => (
               <PostCard 
