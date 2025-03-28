@@ -17,6 +17,7 @@ import NotificationsSettingsPage from '@/pages/NotificationsSettingsPage';
 import LanguageSettingsPage from '@/pages/LanguageSettingsPage';
 import BlockedUsersPage from '@/pages/BlockedUsersPage';
 import UserProfilePage from '@/pages/UserProfilePage';
+import RequireAuth from '@/components/RequireAuth';
 import './App.css';
 
 // Import Inter font
@@ -33,19 +34,23 @@ function App() {
         <div className="font-inter">
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/feed" element={<Feed />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
-            <Route path="/settings/language" element={<LanguageSettingsPage />} />
-            <Route path="/settings/blocked-users" element={<BlockedUsersPage />} />
-            <Route path="/edit-profile" element={<EditProfilePage />} />
-            <Route path="/messages" element={<MessagesPage />} />
-            <Route path="/direct-message/:userId" element={<DirectMessagePage />} />
-            <Route path="/chatroom/:roomId" element={<ChatRoomPage />} />
-            <Route path="/chatroom-info/:roomId" element={<ChatroomInfoPage />} />
-            <Route path="/create-post" element={<CreatePostPage />} />
-            <Route path="/user/:userId" element={<UserProfilePage />} />
+            
+            {/* Protected Routes */}
+            <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
+            <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+            <Route path="/settings/notifications" element={<RequireAuth><NotificationsSettingsPage /></RequireAuth>} />
+            <Route path="/settings/language" element={<RequireAuth><LanguageSettingsPage /></RequireAuth>} />
+            <Route path="/settings/blocked-users" element={<RequireAuth><BlockedUsersPage /></RequireAuth>} />
+            <Route path="/edit-profile" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
+            <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
+            <Route path="/direct-message/:userId" element={<RequireAuth><DirectMessagePage /></RequireAuth>} />
+            <Route path="/chatroom/:roomId" element={<RequireAuth><ChatRoomPage /></RequireAuth>} />
+            <Route path="/chatroom-info/:roomId" element={<RequireAuth><ChatroomInfoPage /></RequireAuth>} />
+            <Route path="/create-post" element={<RequireAuth><CreatePostPage /></RequireAuth>} />
+            <Route path="/user/:userId" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
+            
+            {/* Public Routes */}
             <Route path="/faq" element={<NotFound />} />
             <Route path="/contact" element={<NotFound />} />
             <Route path="/privacy-policy" element={<NotFound />} />

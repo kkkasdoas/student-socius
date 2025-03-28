@@ -1,53 +1,51 @@
 
 export type User = {
   id: string;
-  displayName: string;
+  display_name: string;
   bio?: string;
   university?: string;
-  verificationStatus: 'verified' | 'unverified';
-  profilePictureUrl?: string;
-  authProvider: 'google' | 'microsoft' | 'apple';
-  loginEmail?: string;
+  verification_status: 'verified' | 'unverified';
+  profile_picture_url?: string;
+  auth_provider: 'google' | 'microsoft' | 'apple';
+  login_email?: string;
   login_name?: string;
-  lastLogin?: Date;
-  blockStatus: boolean;
-  isDeleted: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  block_status: boolean;
+  is_deleted: boolean;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type Post = {
   id: string;
-  userId: string;
+  user_id: string;
   title: string;
   content: string;
-  university: string;
-  conversationId?: string;
-  imageUrl?: string;
-  channelType: ChannelType;
+  university?: string;
+  image_url?: string;
+  channel_type: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
-  isEdited: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  user: User;
-  reactions: Reaction[];
+  is_edited: boolean;
+  created_at: Date;
+  updated_at: Date;
+  user?: User;
+  reactions?: Reaction[];
 };
 
 export type Comment = {
   id: string;
-  postId: string;
-  userId: string;
+  post_id: string;
+  user_id: string;
   content: string;
-  createdAt: Date;
-  user: User;
+  created_at: Date;
+  user?: User;
 };
 
 export type Reaction = {
   id: string;
-  postId: string;
-  userId: string;
+  post_id: string;
+  user_id: string;
   type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry';
-  createdAt: Date;
+  created_at: Date;
 };
 
 export type ChannelType = 'CampusGeneral' | 'Forum' | 'CampusCommunity' | 'Community';
@@ -56,107 +54,93 @@ export type FilterOption = 'Hot' | 'New' | 'Study' | 'Fun' | 'Drama' | 'All';
 
 export type GenderFilter = 'All' | 'Male' | 'Female' | 'L' | 'G' | 'B' | 'T';
 
-export type ConversationType = 'private' | 'chatroom';
-
-export type Conversation = {
+export type ChatRoom = {
   id: string;
-  type: ConversationType;
-  chatroomName?: string;
-  photo?: string;
-  postId?: string;
-  lastMessageContent?: string;
-  lastMessageSenderId?: string;
-  lastMessageTimestamp?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  post_id?: string;
+  chatroom_name: string;
+  chatroom_photo?: string;
+  created_at: Date;
+  updated_at: Date;
   participants?: User[];
 };
 
-export type ConversationParticipant = {
-  conversationId: string;
-  userId: string;
+export type ChatRoomParticipant = {
+  id: string;
+  chatroom_id: string;
+  user_id: string;
+  joined_at: Date;
   user?: User;
 };
 
-export type Message = {
+export type ChatroomMessage = {
   id: string;
-  conversationId: string;
-  senderId: string;
+  chatroom_id: string;
+  sender_id: string;
   content: string;
-  createdAt: Date;
-  isRead: boolean;
-  isEdited: boolean;
-  replyToId?: string;
+  created_at: Date;
+  is_read: boolean;
+  is_edited: boolean;
+  reply_to_id?: string;
   sender?: User;
 };
 
 export type UserSettings = {
-  userId: string;
-  muteAllNotifications: boolean;
-  privateChatNotifications: boolean;
-  chatroomNotifications: boolean;
-  darkMode: boolean;
+  user_id: string;
+  mute_all_notifications: boolean;
+  private_chat_notifications: boolean;
+  chatroom_notifications: boolean;
+  dark_mode: boolean;
   language: 'english' | 'vietnamese';
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type BlockedUser = {
-  blockerId: string;
-  blockedId: string;
-};
-
-export type MutedUser = {
-  muterId: string;
-  mutedId: string;
+  blocker_id: string;
+  blocked_id: string;
+  created_at: Date;
 };
 
 export type SavedPost = {
-  userId: string;
-  postId: string;
+  user_id: string;
+  post_id: string;
+  created_at: Date;
 };
 
 export type HiddenPost = {
-  userId: string;
-  postId: string;
+  user_id: string;
+  post_id: string;
+  created_at: Date;
 };
 
 export type UserReport = {
   id: string;
-  reporterId: string;
-  reportedId: string;
+  reporter_id: string;
+  reported_id: string;
   reason: string;
-  createdAt: Date;
+  created_at: Date;
 };
 
 export type PostReport = {
   id: string;
-  reporterId: string;
-  postId: string;
+  reporter_id: string;
+  post_id: string;
   reason: string;
-  createdAt: Date;
+  created_at: Date;
 };
 
 export type MessageReport = {
   id: string;
-  reporterId: string;
-  messageId: string;
+  reporter_id: string;
+  message_id: string;
   reason: string;
-  createdAt: Date;
-};
-
-export type MessageReaction = {
-  id: string;
-  messageId: string;
-  userId: string;
-  reaction: string;
-  createdAt: Date;
+  created_at: Date;
 };
 
 export type UserDevice = {
   id: string;
-  userId: string;
-  deviceToken: string;
-  createdAt: Date;
-  updatedAt: Date;
+  user_id: string;
+  device_token: string;
+  created_at: Date;
+  updated_at: Date;
 };
