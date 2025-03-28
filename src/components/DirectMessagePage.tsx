@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import MessageList from '@/components/MessageList';
@@ -17,6 +17,7 @@ const DirectMessagePage: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   
   // Find the user based on the userId param
   const otherUser = mockUsers.find(user => user.id === userId);
@@ -30,6 +31,7 @@ const DirectMessagePage: React.FC = () => {
       content: "Hey, how are you doing?",
       createdAt: new Date(new Date().getTime() - 24 * 60 * 60 * 1000), // 1 day ago
       isRead: true,
+      isEdited: false,
       sender: currentUser || mockUsers[0]
     },
     {
@@ -39,6 +41,7 @@ const DirectMessagePage: React.FC = () => {
       content: "I'm good, thanks! How about you?",
       createdAt: new Date(new Date().getTime() - 23 * 60 * 60 * 1000), // 23 hours ago
       isRead: true,
+      isEdited: false,
       sender: otherUser || mockUsers[1]
     },
     {
@@ -48,6 +51,7 @@ const DirectMessagePage: React.FC = () => {
       content: "Doing well! Just working on some assignments.",
       createdAt: new Date(new Date().getTime() - 22 * 60 * 60 * 1000), // 22 hours ago
       isRead: true,
+      isEdited: false,
       sender: currentUser || mockUsers[0]
     },
     {
@@ -57,6 +61,7 @@ const DirectMessagePage: React.FC = () => {
       content: "Nice! Which class are you working on?",
       createdAt: new Date(new Date().getTime() - 30 * 60 * 1000), // 30 minutes ago
       isRead: true,
+      isEdited: false,
       sender: otherUser || mockUsers[1]
     }
   ];
@@ -74,8 +79,9 @@ const DirectMessagePage: React.FC = () => {
   const handleSendMessage = () => {
     if (message.trim()) {
       // In a real app, this would send the message to the API
-      console.log('Sending message:', message);
+      console.log('Sending message:', message, replyingTo ? `replying to: ${replyingTo.id}` : '');
       setMessage('');
+      setReplyingTo(null);
     }
   };
   
@@ -84,6 +90,14 @@ const DirectMessagePage: React.FC = () => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+  
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
+  };
+  
+  const cancelReply = () => {
+    setReplyingTo(null);
   };
   
   return (
@@ -118,8 +132,25 @@ const DirectMessagePage: React.FC = () => {
         
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
-          <MessageList messages={mockDirectMessages} />
+          <MessageList messages={mockDirectMessages} onReply={handleReply} />
         </div>
+        
+        {/* Reply Preview */}
+        {replyingTo && (
+          <div className="bg-gray-50 border-t border-gray-200 p-2 flex items-start">
+            <div className="flex-1 ml-2">
+              <div className="flex justify-between">
+                <p className="text-xs text-gray-500">
+                  Replying to <span className="font-medium">{replyingTo.sender?.displayName}</span>
+                </p>
+                <Button variant="ghost" size="sm" onClick={cancelReply} className="p-0 h-auto text-gray-400 hover:text-gray-600">
+                  ✕
+                </Button>
+              </div>
+              <p className="text-sm text-gray-600 truncate">{replyingTo.content}</p>
+            </div>
+          </div>
+        )}
         
         {/* Message Input */}
         <div className="bg-white border-t border-gray-200 p-2 flex items-end">

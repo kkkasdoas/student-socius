@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { formatDistanceToNow, differenceInDays, format } from 'date-fns';
+import { formatDistanceToNow, differenceInDays, format, differenceInMinutes } from 'date-fns';
 import {
   ThumbsUp,
   Heart,
@@ -14,14 +14,18 @@ import {
   Twitter as TwitterIcon,
   Linkedin as LinkedinIcon,
   Link2 as Link2Icon,
+  Edit,
+  Trash,
+  EyeOff,
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogFooter, DialogHeader, DialogDescription } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
-import { Post, Reaction } from '@/types';
+import { Post, Reaction, SavedPost, HiddenPost, PostReport } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   const [reactionGroups, setReactionGroups] = useState({
@@ -34,8 +38,18 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   });
   const [userReactions, setUserReactions] = useState<Reaction[]>([]);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const isOwnPost = currentUser?.id === post.user.id;
+  const canEdit = isOwnPost && differenceInMinutes(new Date(), new Date(post.createdAt)) <= 30;
 
   useEffect(() => {
     // Group reactions by type
@@ -55,7 +69,21 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     // Get user's reactions for this post
     const userReactionsForPost = post.reactions.filter(reaction => reaction.userId === currentUser?.id);
     setUserReactions(userReactionsForPost);
-  }, [post.reactions, currentUser?.id]);
+
+    // Initialize post state
+    if (currentUser) {
+      // In a real app, check if post is saved by this user
+      // SELECT * FROM saved_posts WHERE userId = ? AND postId = ?
+      setIsSaved(false);
+      
+      // In a real app, check if post is hidden by this user
+      // SELECT * FROM hidden_posts WHERE userId = ? AND postId = ?
+      setIsHidden(false);
+    }
+    
+    setEditTitle(post.title);
+    setEditContent(post.content);
+  }, [post, currentUser]);
 
   const totalReactions = Object.values(reactionGroups).reduce((sum, count) => sum + count, 0);
 
@@ -64,8 +92,59 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   };
 
   const handleReaction = (type: string) => {
+    if (!currentUser) {
+      toast.error('Please log in to react to posts');
+      return;
+    }
+    
     // In a real app, this would send the reaction to the server
     console.log('Reacted with:', type);
+    
+    // If user already has this reaction, remove it
+    if (hasReacted(type)) {
+      // DELETE FROM reactions WHERE postId = ? AND userId = ? AND type = ?
+      console.log('Removing reaction:', type);
+      
+      // Update local state (optimistic update)
+      setUserReactions(userReactions.filter(r => r.type !== type));
+      setReactionGroups({
+        ...reactionGroups,
+        [type]: Math.max(0, reactionGroups[type] - 1)
+      });
+    } else {
+      // If user has a different reaction, replace it
+      if (userReactions.length > 0) {
+        const oldType = userReactions[0].type;
+        // UPDATE reactions SET type = ? WHERE postId = ? AND userId = ?
+        console.log('Replacing reaction from', oldType, 'to', type);
+        
+        // Update local state (optimistic update)
+        setUserReactions([{ ...userReactions[0], type }]);
+        setReactionGroups({
+          ...reactionGroups,
+          [oldType]: Math.max(0, reactionGroups[oldType] - 1),
+          [type]: (reactionGroups[type] || 0) + 1
+        });
+      } else {
+        // Add new reaction
+        // INSERT INTO reactions (id, postId, userId, type, createdAt) VALUES (uuid(), ?, ?, ?, NOW())
+        console.log('Adding new reaction:', type);
+        
+        // Update local state (optimistic update)
+        const newReaction: Reaction = {
+          id: `reaction-${Date.now()}`,
+          postId: post.id,
+          userId: currentUser.id,
+          type: type as 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry',
+          createdAt: new Date()
+        };
+        setUserReactions([newReaction]);
+        setReactionGroups({
+          ...reactionGroups,
+          [type]: (reactionGroups[type] || 0) + 1
+        });
+      }
+    }
   };
 
   const navigateToUserProfile = (userId: string, event: React.MouseEvent) => {
@@ -77,6 +156,116 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     if (post.conversationId) {
       navigate(`/chatroom/${post.conversationId}`);
     }
+  };
+  
+  const handleShare = () => {
+    setShowShareSheet(true);
+  };
+  
+  const handleSavePost = () => {
+    if (!currentUser) {
+      toast.error('Please log in to save posts');
+      return;
+    }
+    
+    if (isSaved) {
+      // DELETE FROM saved_posts WHERE userId = ? AND postId = ?
+      console.log('Unsaving post:', post.id);
+      setIsSaved(false);
+      toast.success('Post removed from saved posts');
+    } else {
+      // INSERT INTO saved_posts (userId, postId) VALUES (?, ?)
+      console.log('Saving post:', post.id);
+      setIsSaved(true);
+      toast.success('Post saved for later');
+    }
+  };
+  
+  const handleHidePost = () => {
+    if (!currentUser) {
+      toast.error('Please log in to hide posts');
+      return;
+    }
+    
+    if (isHidden) {
+      // DELETE FROM hidden_posts WHERE userId = ? AND postId = ?
+      console.log('Unhiding post:', post.id);
+      setIsHidden(false);
+      toast.success('Post unhidden');
+    } else {
+      // INSERT INTO hidden_posts (userId, postId) VALUES (?, ?)
+      console.log('Hiding post:', post.id);
+      setIsHidden(true);
+      toast.success('Post hidden from your feed');
+    }
+  };
+  
+  const handleReportPost = () => {
+    setShowReportDialog(true);
+  };
+  
+  const submitReport = () => {
+    if (!reportReason.trim() || !currentUser) {
+      toast.error('Please provide a reason for the report');
+      return;
+    }
+    
+    // INSERT INTO post_reports (id, reporterId, postId, reason, createdAt) VALUES (uuid(), ?, ?, ?, NOW())
+    const newReport: PostReport = {
+      id: `report-${Date.now()}`,
+      reporterId: currentUser.id,
+      postId: post.id,
+      reason: reportReason,
+      createdAt: new Date()
+    };
+    
+    console.log('Submitting post report:', newReport);
+    toast.success('Report submitted successfully');
+    setShowReportDialog(false);
+    setReportReason('');
+  };
+  
+  const handleEditPost = () => {
+    if (!canEdit) {
+      toast.error('Posts can only be edited within 30 minutes of posting');
+      return;
+    }
+    
+    setShowEditDialog(true);
+  };
+  
+  const submitEdit = () => {
+    if (!editTitle.trim() || !editContent.trim()) {
+      toast.error('Title and content cannot be empty');
+      return;
+    }
+    
+    // UPDATE posts SET title = ?, content = ?, isEdited = true, updatedAt = NOW() WHERE id = ?
+    console.log('Editing post:', post.id, {
+      title: editTitle,
+      content: editContent,
+      isEdited: true
+    });
+    
+    toast.success('Post updated successfully');
+    setShowEditDialog(false);
+    
+    // In a real app, we would refetch the post or update the local state
+  };
+  
+  const handleDeletePost = () => {
+    setShowDeleteConfirm(true);
+  };
+  
+  const confirmDelete = () => {
+    // DELETE FROM posts WHERE id = ?
+    // Also delete related data (reactions, comments, etc.)
+    console.log('Deleting post:', post.id);
+    
+    toast.success('Post deleted successfully');
+    setShowDeleteConfirm(false);
+    
+    // In a real app, we would remove the post from the UI or redirect
   };
   
   // Format time ago
@@ -133,6 +322,9 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
               {post.user.displayName}
             </h3>
             <span className="text-gray-500 text-sm ml-2">{formattedTime}</span>
+            {post.isEdited && (
+              <span className="text-gray-500 text-xs ml-2">(Edited)</span>
+            )}
           </div>
 
           <div className="mt-0.5 flex items-center text-xs text-gray-500">
@@ -154,19 +346,51 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem>
-              <Bookmark className="mr-2 h-4 w-4" />
-              <span>Save post</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Share className="mr-2 h-4 w-4" />
-              <span>Share</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Flag className="mr-2 h-4 w-4" />
-              <span>Report</span>
-            </DropdownMenuItem>
+            {isOwnPost ? (
+              // Options for own posts
+              <>
+                <DropdownMenuItem onClick={handleSavePost}>
+                  <Bookmark className="mr-2 h-4 w-4" />
+                  <span>{isSaved ? 'Unsave' : 'Save'}</span>
+                </DropdownMenuItem>
+                {canEdit && (
+                  <DropdownMenuItem onClick={handleEditPost}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    <span>Edit</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleShare}>
+                  <Share className="mr-2 h-4 w-4" />
+                  <span>Share</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDeletePost} className="text-red-500">
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>Delete</span>
+                </DropdownMenuItem>
+              </>
+            ) : (
+              // Options for other users' posts
+              <>
+                <DropdownMenuItem onClick={handleSavePost}>
+                  <Bookmark className="mr-2 h-4 w-4" />
+                  <span>{isSaved ? 'Unsave' : 'Save'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleHidePost}>
+                  <EyeOff className="mr-2 h-4 w-4" />
+                  <span>{isHidden ? 'Unhide' : 'Hide'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShare}>
+                  <Share className="mr-2 h-4 w-4" />
+                  <span>Share</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleReportPost} className="text-red-500">
+                  <Flag className="mr-2 h-4 w-4" />
+                  <span>Report</span>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -235,7 +459,7 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
           <MessageCircle className="mr-1 h-4 w-4" />
           <span>Chat</span>
         </Button>
-        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={() => setShowShareSheet(true)}>
+        <Button variant="ghost" size="sm" className="flex-1 text-gray-500" onClick={handleShare}>
           <Share className="mr-1 h-4 w-4" />
           <span>Share</span>
         </Button>
@@ -265,6 +489,101 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
               <span className="text-xs">Copy Link</span>
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Report Dialog */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+            <DialogDescription>
+              Tell us why you're reporting this post. Your report will be kept anonymous.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <textarea
+              className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={4}
+              placeholder="Please explain why you're reporting this post..."
+              value={reportReason}
+              onChange={e => setReportReason(e.target.value)}
+            />
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowReportDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitReport}>
+              Submit Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Post</DialogTitle>
+            <DialogDescription>
+              You can edit your post within 30 minutes of posting.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                type="text"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+              <textarea
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={4}
+                value={editContent}
+                onChange={e => setEditContent(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitEdit}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

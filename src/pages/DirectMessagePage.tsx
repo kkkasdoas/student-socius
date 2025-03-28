@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Send, Image, Smile, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Message } from '@/types';
+import MessageList from '@/components/MessageList';
 
 const DirectMessagePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -15,6 +16,7 @@ const DirectMessagePage: React.FC = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [recipient, setRecipient] = useState<any>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Find the user and their messages
@@ -36,6 +38,7 @@ const DirectMessagePage: React.FC = () => {
         content: "Hey there! How's it going?",
         createdAt: new Date(Date.now() - 3600000 * 2), // 2 hours ago
         isRead: true,
+        isEdited: false,
         sender: currentUser
       },
       {
@@ -45,6 +48,7 @@ const DirectMessagePage: React.FC = () => {
         content: "I'm doing well, thanks for asking!",
         createdAt: new Date(Date.now() - 3600000), // 1 hour ago
         isRead: true,
+        isEdited: false,
         sender: user
       },
       {
@@ -54,6 +58,7 @@ const DirectMessagePage: React.FC = () => {
         content: "Great to hear! What have you been up to lately?",
         createdAt: new Date(Date.now() - 1800000), // 30 minutes ago
         isRead: true,
+        isEdited: false,
         sender: currentUser
       }
     ];
@@ -76,11 +81,22 @@ const DirectMessagePage: React.FC = () => {
       content: message,
       createdAt: new Date(),
       isRead: false,
-      sender: currentUser
+      isEdited: false,
+      sender: currentUser,
+      ...(replyingTo ? { replyToId: replyingTo.id } : {})
     };
     
     setMessages([...messages, newMessage]);
     setMessage('');
+    setReplyingTo(null);
+  };
+  
+  const handleReply = (msg: Message) => {
+    setReplyingTo(msg);
+  };
+  
+  const cancelReply = () => {
+    setReplyingTo(null);
   };
   
   if (!recipient) {
@@ -133,47 +149,30 @@ const DirectMessagePage: React.FC = () => {
         </div>
         
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {messages.length > 0 ? (
-            messages.map(msg => (
-              <div 
-                key={msg.id}
-                className={`flex ${msg.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.senderId !== currentUser?.id && (
-                  <img 
-                    src={recipient.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
-                    alt={recipient.displayName} 
-                    className="w-8 h-8 rounded-full object-cover mr-2 self-end"
-                  />
-                )}
-                
-                <div 
-                  className={`max-w-[75%] rounded-2xl p-3 ${
-                    msg.senderId === currentUser?.id 
-                      ? 'bg-cendy-primary text-white rounded-br-none' 
-                      : 'bg-white text-gray-800 rounded-bl-none'
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  <p 
-                    className={`text-[10px] mt-1 text-right ${
-                      msg.senderId === currentUser?.id ? 'text-white/70' : 'text-gray-500'
-                    }`}
-                  >
-                    {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: false })}
-                  </p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40 text-gray-500">
-              <p className="text-center">No messages yet</p>
-              <p className="text-sm text-gray-400 mt-1">Send a message to start the conversation</p>
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto">
+          <MessageList messages={messages} onReply={handleReply} />
           <div ref={messagesEndRef} />
         </div>
+        
+        {/* Reply Preview */}
+        {replyingTo && (
+          <div className="bg-gray-50 border-t border-gray-200 p-2 flex items-start">
+            <div className="flex-1 ml-2">
+              <div className="flex justify-between">
+                <p className="text-xs text-gray-500">
+                  Replying to <span className="font-medium">{replyingTo.sender?.displayName}</span>
+                </p>
+                <button 
+                  className="p-0 h-auto text-gray-400 hover:text-gray-600 text-xs"
+                  onClick={cancelReply}
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 truncate">{replyingTo.content}</p>
+            </div>
+          </div>
+        )}
         
         {/* Message Input */}
         <div className="p-3 border-t border-cendy-border bg-white">

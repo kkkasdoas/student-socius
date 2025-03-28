@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   displayName: string;
@@ -25,6 +26,7 @@ export type Post = {
   imageUrl?: string;
   channelType: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
+  isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
   user: User;
@@ -83,6 +85,8 @@ export type Message = {
   content: string;
   createdAt: Date;
   isRead: boolean;
+  isEdited: boolean;
+  replyToId?: string;
   sender?: User;
 };
 
@@ -133,31 +137,26 @@ export type PostReport = {
   createdAt: Date;
 };
 
+export type MessageReport = {
+  id: string;
+  reporterId: string;
+  messageId: string;
+  reason: string;
+  createdAt: Date;
+};
+
+export type MessageReaction = {
+  id: string;
+  messageId: string;
+  userId: string;
+  reaction: string;
+  createdAt: Date;
+};
+
 export type UserDevice = {
   id: string;
   userId: string;
   deviceToken: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type ChatroomMessage = {
-  id: string;
-  chatroomId: string;
-  senderId: string;
-  content: string;
-  createdAt: Date;
-  sender: User;
-};
-
-export type ChatRoom = {
-  id: string;
-  postId?: string;
-  chatroomName?: string;
-  chatroomPhoto?: string;
-  participants: User[];
-  messages: ChatroomMessage[];
-  lastMessage?: ChatroomMessage;
   createdAt: Date;
   updatedAt: Date;
 };

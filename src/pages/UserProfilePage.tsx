@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, UserX, Share2, BellOff, Flag } from 'lucide-react';
+import { ArrowLeft, MoreVertical, UserX, Share2, BellOff, Flag, Edit, ExternalLink } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -10,8 +10,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { mockUsers } from '@/utils/mockData';
-import { User, Post } from '@/types';
+import { User, Post, BlockedUser, MutedUser, UserReport } from '@/types';
 import PostCard from '@/components/PostCard';
+import { ContextMenu } from '@/components/ui/context-menu';
 
 const UserProfilePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -23,9 +24,13 @@ const UserProfilePage: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [isCurrentUser, setIsCurrentUser] = useState(false);
   
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !currentUser) return;
+    
+    // Check if viewing own profile
+    setIsCurrentUser(userId === currentUser.id);
     
     // In a real app, fetch user and their posts from the API
     const foundUser = mockUsers.find(u => u.id === userId);
@@ -33,10 +38,12 @@ const UserProfilePage: React.FC = () => {
       setUser(foundUser);
       
       // Check if blocked (simulated)
-      setIsBlocked(false);
+      const isUserBlocked = false; // In real app: check blocked_users table
+      setIsBlocked(isUserBlocked);
       
       // Check if muted (simulated)
-      setIsMuted(false);
+      const isUserMuted = false; // In real app: check muted_users table
+      setIsMuted(isUserMuted);
       
       // Get recent posts by this user (simulated)
       // In a real app, this would be fetched from an API
@@ -44,23 +51,64 @@ const UserProfilePage: React.FC = () => {
       // This is a placeholder for the actual posts query
       setUserPosts(recentPosts);
     }
-  }, [userId]);
+  }, [userId, currentUser]);
   
   const handleBlock = () => {
+    if (!currentUser || !user) return;
+    
+    // In a real app, this would call an API to block/unblock the user
+    // Insert or delete from blocked_users table
+    if (isBlocked) {
+      // Delete from blocked_users where blockerId = currentUser.id and blockedId = user.id
+      // DELETE FROM blocked_users WHERE blockerId = ? AND blockedId = ?
+      console.log('Unblocking user:', user.id);
+    } else {
+      // Insert into blocked_users (blockerId, blockedId) VALUES (currentUser.id, user.id)
+      // INSERT INTO blocked_users (blockerId, blockedId) VALUES (?, ?)
+      console.log('Blocking user:', user.id);
+    }
+    
     setIsBlocked(!isBlocked);
     toast.success(isBlocked ? 'User unblocked' : 'User blocked');
-    // In a real app, this would call an API to block/unblock the user
   };
   
   const handleMute = () => {
+    if (!currentUser || !user) return;
+    
+    // In a real app, this would call an API to mute/unmute the user
+    // Insert or delete from muted_users table
+    if (isMuted) {
+      // Delete from muted_users where muterId = currentUser.id and mutedId = user.id
+      // DELETE FROM muted_users WHERE muterId = ? AND mutedId = ?
+      console.log('Unmuting user:', user.id);
+    } else {
+      // Insert into muted_users (muterId, mutedId) VALUES (currentUser.id, user.id)
+      // INSERT INTO muted_users (muterId, mutedId) VALUES (?, ?)
+      console.log('Muting user:', user.id);
+    }
+    
     setIsMuted(!isMuted);
     toast.success(isMuted ? 'Unmuted notifications from this user' : 'Muted notifications from this user');
-    // In a real app, this would call an API to mute/unmute the user
   };
   
   const handleShare = () => {
+    if (!user) return;
+    
     // In a real app, this would use the Web Share API or a custom share sheet
-    toast.success('Profile sharing initiated');
+    if (navigator.share) {
+      navigator.share({
+        title: `Profile of ${user.displayName}`,
+        text: `Check out ${user.displayName}'s profile!`,
+        url: `app://user/${user.id}`, // This would be a proper URL in a real app
+      })
+      .then(() => console.log('Successfully shared'))
+      .catch((error) => console.log('Error sharing:', error));
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      // Copy a link to clipboard
+      navigator.clipboard.writeText(`app://user/${user.id}`);
+      toast.success('Profile link copied to clipboard');
+    }
   };
   
   const handleReport = () => {
@@ -68,15 +116,30 @@ const UserProfilePage: React.FC = () => {
   };
   
   const submitReport = () => {
-    if (!reportReason.trim()) {
+    if (!reportReason.trim() || !currentUser || !user) {
       toast.error('Please provide a reason for the report');
       return;
     }
     
     // In a real app, this would call an API to submit the report
+    // INSERT INTO user_reports (id, reporterId, reportedId, reason, createdAt) VALUES (uuid(), ?, ?, ?, NOW())
+    const newReport: UserReport = {
+      id: `report-${Date.now()}`,
+      reporterId: currentUser.id,
+      reportedId: user.id,
+      reason: reportReason,
+      createdAt: new Date()
+    };
+    
+    console.log('Submitting report:', newReport);
+    
     toast.success('Report submitted successfully');
     setReportDialogOpen(false);
     setReportReason('');
+  };
+  
+  const handleEditProfile = () => {
+    navigate('/settings/edit-profile');
   };
   
   if (!user) {
@@ -117,23 +180,40 @@ const UserProfilePage: React.FC = () => {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={handleBlock}>
-                <UserX className="mr-2 h-4 w-4" />
-                <span>{isBlocked ? 'Unblock' : 'Block'}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleMute}>
-                <BellOff className="mr-2 h-4 w-4" />
-                <span>{isMuted ? 'Unmute' : 'Mute'}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleShare}>
-                <Share2 className="mr-2 h-4 w-4" />
-                <span>Share this profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleReport} className="text-red-500 focus:text-red-500">
-                <Flag className="mr-2 h-4 w-4" />
-                <span>Report</span>
-              </DropdownMenuItem>
+              {isCurrentUser ? (
+                // Options for own profile
+                <>
+                  <DropdownMenuItem onClick={handleEditProfile}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    <span>Edit Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShare}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    <span>Share Profile</span>
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                // Options for other users' profiles
+                <>
+                  <DropdownMenuItem onClick={handleBlock}>
+                    <UserX className="mr-2 h-4 w-4" />
+                    <span>{isBlocked ? 'Unblock' : 'Block'}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleMute}>
+                    <BellOff className="mr-2 h-4 w-4" />
+                    <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShare}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    <span>Share this profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleReport} className="text-red-500 focus:text-red-500">
+                    <Flag className="mr-2 h-4 w-4" />
+                    <span>Report</span>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
