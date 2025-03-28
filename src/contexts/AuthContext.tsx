@@ -1,12 +1,27 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
-import { mockUsers } from '@/utils/mockData';
 import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
 
 export type AuthProviderProps = {
   children: React.ReactNode;
 };
+
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  bio?: string;
+  university?: string;
+  verificationStatus: 'verified' | 'unverified';
+  profilePictureUrl?: string;
+  authProvider: 'google' | 'microsoft' | 'apple';
+  loginEmail?: string;
+  login_name?: string;
+  blockStatus: boolean;
+  isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type AuthContextType = {
   currentUser: User | null;
@@ -18,6 +33,7 @@ export type AuthContextType = {
   loginWithApple: () => Promise<void>;
   logout: () => void;
   setDisplayName: (name: string) => Promise<void>;
+  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,13 +46,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userEmail, setUserEmail] = useState<string>('');
 
   useEffect(() => {
-    // Check if user is already logged in (from localStorage in this mock)
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setIsLoading(true);
+        if (session?.user) {
+          // Get profile data
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (error) {
+            console.error('Error fetching profile:', error);
+            setCurrentUser(null);
+          } else if (profile) {
+            // Convert to our User type
+            const userData: User = {
+              id: profile.id,
+              displayName: profile.display_name,
+              bio: profile.bio || undefined,
+              university: profile.university || undefined,
+              verificationStatus: profile.verification_status as 'verified' | 'unverified',
+              profilePictureUrl: profile.profile_picture_url || undefined,
+              authProvider: profile.auth_provider as 'google' | 'microsoft' | 'apple',
+              loginEmail: profile.login_email || undefined,
+              login_name: profile.login_name || undefined,
+              blockStatus: profile.block_status,
+              isDeleted: profile.is_deleted,
+              createdAt: new Date(profile.created_at),
+              updatedAt: new Date(profile.updated_at)
+            };
+            
+            setCurrentUser(userData);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+        
+        setIsLoading(false);
+      }
+    );
     
-    setIsLoading(false);
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setIsLoading(false);
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const isAuthenticated = !!currentUser;
@@ -46,25 +108,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/feed`
+        }
+      });
       
-      // For demo, we'll simulate login with a Google email
-      const mockEmail = 'user@student.tdtu.edu.vn'; // Allowed domain
-      
-      // Check if email domain is allowed
-      if (mockEmail.endsWith('@student.tdtu.edu.vn')) {
-        setNeedsDisplayName(true);
-        setAuthProvider('google');
-        setUserEmail(mockEmail);
-        
-        toast.success('Login successful. Please set your display name.');
-      } else {
-        toast.error('Please log in with your student email address.');
+      if (error) {
+        throw error;
       }
     } catch (error) {
+      console.error('Google login error:', error);
       toast.error('Login failed. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -73,25 +129,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          redirectTo: `${window.location.origin}/feed`
+        }
+      });
       
-      // For demo, we'll simulate login with a Microsoft email
-      const mockEmail = 'user@student.tdtu.edu.vn'; // Allowed domain
-      
-      // Check if email domain is allowed
-      if (mockEmail.endsWith('@student.tdtu.edu.vn')) {
-        setNeedsDisplayName(true);
-        setAuthProvider('microsoft');
-        setUserEmail(mockEmail);
-        
-        toast.success('Login successful. Please set your display name.');
-      } else {
-        toast.error('Please log in with your student email address.');
+      if (error) {
+        throw error;
       }
     } catch (error) {
+      console.error('Microsoft login error:', error);
       toast.error('Login failed. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -100,78 +150,150 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/feed`
+        }
+      });
       
-      // For Apple, we automatically generate a random name and login
-      const randomUser = mockUsers.find(u => u.authProvider === 'apple');
-      
-      if (randomUser) {
-        setCurrentUser(randomUser);
-        localStorage.setItem('currentUser', JSON.stringify(randomUser));
-        toast.success('Logged in successfully!');
-      } else {
-        // Create a new unverified user
-        const newUser: User = {
-          id: `user-${Date.now()}`,
-          displayName: `AppleUser${Math.floor(Math.random() * 10000)}`,
-          verificationStatus: 'unverified',
-          authProvider: 'apple',
-          blockStatus: false,
-          isDeleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        
-        setCurrentUser(newUser);
-        localStorage.setItem('currentUser', JSON.stringify(newUser));
-        toast.success('Logged in successfully!');
+      if (error) {
+        throw error;
       }
     } catch (error) {
+      console.error('Apple login error:', error);
       toast.error('Login failed. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
 
   const setDisplayName = async (name: string): Promise<void> => {
+    if (!supabase.auth.getUser()) {
+      toast.error("Not authenticated");
+      return;
+    }
+    
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Update profile
+      const { error } = await supabase
+        .from('profiles')
+        .update({ display_name: name })
+        .eq('id', (await supabase.auth.getUser()).data.user?.id);
       
-      // In a real app, we would send this to the backend
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        displayName: name,
-        university: 'TDTU University', // Based on email domain
-        verificationStatus: 'verified',
-        authProvider: authProvider!,
-        loginEmail: userEmail,
-        blockStatus: false,
-        isDeleted: false,
-        profilePictureUrl: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      if (error) {
+        throw error;
+      }
       
-      setCurrentUser(newUser);
-      localStorage.setItem('currentUser', JSON.stringify(newUser));
+      // Refresh user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+      
+      if (profile) {
+        const userData: User = {
+          id: profile.id,
+          displayName: profile.display_name,
+          bio: profile.bio || undefined,
+          university: profile.university || undefined,
+          verificationStatus: profile.verification_status as 'verified' | 'unverified',
+          profilePictureUrl: profile.profile_picture_url || undefined,
+          authProvider: profile.auth_provider as 'google' | 'microsoft' | 'apple',
+          loginEmail: profile.login_email || undefined,
+          login_name: profile.login_name || undefined,
+          blockStatus: profile.block_status,
+          isDeleted: profile.is_deleted,
+          createdAt: new Date(profile.created_at),
+          updatedAt: new Date(profile.updated_at)
+        };
+        
+        setCurrentUser(userData);
+      }
+      
       setNeedsDisplayName(false);
-      
       toast.success('Display name set successfully!');
     } catch (error) {
+      console.error('Error setting display name:', error);
       toast.error('Failed to set display name. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = (): void => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    toast.success('Logged out successfully');
+  const updateUserProfile = async (data: Partial<UserProfile>): Promise<void> => {
+    if (!currentUser) {
+      toast.error("Not authenticated");
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Convert to snake_case for database
+      const dbData: any = {};
+      if (data.displayName) dbData.display_name = data.displayName;
+      if (data.bio !== undefined) dbData.bio = data.bio;
+      if (data.university !== undefined) dbData.university = data.university;
+      if (data.profilePictureUrl !== undefined) dbData.profile_picture_url = data.profilePictureUrl;
+      
+      // Update profile
+      const { error } = await supabase
+        .from('profiles')
+        .update(dbData)
+        .eq('id', currentUser.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Refresh user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+      
+      if (profile) {
+        const userData: User = {
+          id: profile.id,
+          displayName: profile.display_name,
+          bio: profile.bio || undefined,
+          university: profile.university || undefined,
+          verificationStatus: profile.verification_status as 'verified' | 'unverified',
+          profilePictureUrl: profile.profile_picture_url || undefined,
+          authProvider: profile.auth_provider as 'google' | 'microsoft' | 'apple',
+          loginEmail: profile.login_email || undefined,
+          login_name: profile.login_name || undefined,
+          blockStatus: profile.block_status,
+          isDeleted: profile.is_deleted,
+          createdAt: new Date(profile.created_at),
+          updatedAt: new Date(profile.updated_at)
+        };
+        
+        setCurrentUser(userData);
+      }
+      
+      toast.success('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async (): void => {
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      toast.success('Logged out successfully');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error('Failed to log out. Please try again.');
+    }
   };
 
   // Create the value object only once when dependencies change
@@ -184,7 +306,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loginWithMicrosoft,
     loginWithApple,
     logout,
-    setDisplayName
+    setDisplayName,
+    updateUserProfile
   };
 
   return (

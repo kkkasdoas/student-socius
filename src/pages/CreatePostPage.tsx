@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChannelType, ConversationType } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Select,
   SelectContent,
@@ -63,6 +65,12 @@ const CreatePostPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!currentUser) {
+      toast.error('You must be logged in to create a post');
+      navigate('/login');
+      return;
+    }
+
     if (!title.trim()) {
       toast.error('Please enter a title');
       return;
@@ -91,50 +99,73 @@ const CreatePostPage: React.FC = () => {
     try {
       setIsPosting(true);
       
-      // In a real app, this would be a transaction in the database
-      // Here, we'll just simulate a delay and redirect
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Upload the image to Supabase Storage if it exists
+      let imageUrl = null;
+      if (image) {
+        const fileExt = image.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `post-images/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('posts')
+          .upload(filePath, image);
+        
+        if (uploadError) {
+          throw uploadError;
+        }
+        
+        const { data } = supabase.storage
+          .from('posts')
+          .getPublicUrl(filePath);
+        
+        imageUrl = data.publicUrl;
+      }
       
-      // Generate a unique ID for the post
-      const postId = `post-${Date.now()}`;
+      // Create the post
+      const { data: post, error: postError } = await supabase
+        .from('posts')
+        .insert({
+          user_id: currentUser.id,
+          title,
+          content,
+          university: (channelType === 'Forum' || channelType === 'Community') ? 'all' : currentUser.university,
+          image_url: imageUrl,
+          channel_type: channelType,
+          category
+        })
+        .select()
+        .single();
       
-      // Generate a unique ID for the conversation
-      const conversationId = `conv-${Date.now()}`;
-
-      // Step 1: Insert into posts table
-      console.log('Creating post:', {
-        id: postId,
-        userId: currentUser?.id,
-        title,
-        content,
-        university: channelType === 'Forum' || channelType === 'Community' ? 'all' : currentUser?.university,
-        conversationId,
-        imageUrl: imagePreview ? imagePreview : undefined,
-        channelType,
-        category,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      if (postError) {
+        throw postError;
+      }
       
-      // Step 2: Insert into conversations table
-      console.log('Creating conversation:', {
-        id: conversationId,
-        type: 'chatroom' as ConversationType,
-        chatroomName,
-        photo: currentUser?.profilePictureUrl,
-        postId,
-        lastMessageContent: null,
-        lastMessageSenderId: null,
-        lastMessageTimestamp: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      // Create the chat room
+      const { data: chatRoom, error: chatRoomError } = await supabase
+        .from('chat_rooms')
+        .insert({
+          post_id: post.id,
+          chatroom_name: chatroomName,
+          chatroom_photo: currentUser.profilePictureUrl
+        })
+        .select()
+        .single();
       
-      // Step 3: Insert into conversation_participants table
-      console.log('Adding user to conversation:', {
-        conversationId,
-        userId: currentUser?.id
-      });
+      if (chatRoomError) {
+        throw chatRoomError;
+      }
+      
+      // Add the user as a participant in the chat room
+      const { error: participantError } = await supabase
+        .from('chat_room_participants')
+        .insert({
+          chatroom_id: chatRoom.id,
+          user_id: currentUser.id
+        });
+      
+      if (participantError) {
+        throw participantError;
+      }
       
       toast.success('Post created successfully!');
       navigate('/feed');

@@ -1,11 +1,13 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronLeft, Camera, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 const EditProfilePage: React.FC = () => {
   const { currentUser, updateUserProfile } = useAuth();
@@ -13,8 +15,17 @@ const EditProfilePage: React.FC = () => {
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profilePictureUrl || null);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (currentUser) {
+      setDisplayName(currentUser.displayName || '');
+      setBio(currentUser.bio || '');
+      setProfileImage(currentUser.profilePictureUrl || null);
+    }
+  }, [currentUser]);
   
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -23,8 +34,7 @@ const EditProfilePage: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // In a real app, you would upload the image to your server first
-      // For demo purposes, we're just setting it locally
+      setProfileImageFile(file);
       const imageUrl = URL.createObjectURL(file);
       setProfileImage(imageUrl);
     }
@@ -41,11 +51,36 @@ const EditProfilePage: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      // In a real app, this would send the data to your API
+      let profilePictureUrl = currentUser?.profilePictureUrl;
+      
+      // Upload new profile image if it exists
+      if (profileImageFile && currentUser) {
+        const fileExt = profileImageFile.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `profile-pictures/${currentUser.id}/${fileName}`;
+        
+        // Upload the file to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('profiles')
+          .upload(filePath, profileImageFile);
+        
+        if (uploadError) {
+          throw uploadError;
+        }
+        
+        // Get the public URL
+        const { data } = supabase.storage
+          .from('profiles')
+          .getPublicUrl(filePath);
+        
+        profilePictureUrl = data.publicUrl;
+      }
+      
+      // Update user profile
       await updateUserProfile({
         displayName,
         bio,
-        profilePictureUrl: profileImage || undefined
+        profilePictureUrl
       });
       
       toast.success('Profile updated successfully');
