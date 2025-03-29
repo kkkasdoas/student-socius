@@ -7,11 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { fetchChatrooms } from '@/utils/supabaseHelpers';
+import { mockChatRooms, mockUsers } from '@/utils/mockData';
 import { cn } from '@/lib/utils';
-import { format, isToday } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { format, isToday, formatDistanceToNow } from 'date-fns';
 
 const MessagesPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,49 +17,26 @@ const MessagesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'private' | 'chatrooms'>('all');
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  useEffect(() => {
-    const loadConversations = async () => {
-      setIsLoading(true);
-      try {
-        if (!currentUser) return;
-        
-        // Fetch chatrooms from Supabase
-        const chatrooms = await fetchChatrooms();
-        
-        // Convert chatrooms to conversations
-        const chatroomConversations: Conversation[] = chatrooms.map(room => ({
-          id: room.id,
-          type: 'chatroom',
-          chatroom_name: room.chatroom_name || 'Unnamed Group',
-          photo: room.chatroom_photo,
-          post_id: room.post_id,
-          last_message_content: room.lastMessage?.content,
-          last_message_sender_id: room.lastMessage?.sender_id,
-          last_message_timestamp: room.lastMessage?.created_at,
-          created_at: room.created_at,
-          updated_at: room.updated_at,
-          participants: room.participants
-        }));
-        
-        setConversations(chatroomConversations);
-      } catch (error) {
-        console.error('Error loading conversations:', error);
-        toast.error('Failed to load conversations');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadConversations();
-  }, [currentUser]);
+  // Create conversations from mock chat rooms for the current user
+  const userConversations: Conversation[] = mockChatRooms.map(room => ({
+    id: room.id,
+    type: 'chatroom',
+    chatroom_name: room.chatroom_name || 'Unnamed Group',
+    photo: room.chatroom_photo,
+    post_id: room.post_id,
+    last_message_content: room.lastMessage?.content,
+    last_message_sender_id: room.lastMessage?.sender_id,
+    last_message_timestamp: room.lastMessage?.created_at,
+    created_at: room.created_at,
+    updated_at: room.updated_at,
+    participants: room.participants
+  }));
 
   // Filter conversations based on search query and active tab
-  const filteredConversations = conversations
+  const filteredConversations = userConversations
     .filter(conv => {
       // Filter by search query
       if (searchQuery) {
@@ -126,27 +101,15 @@ const MessagesPage: React.FC = () => {
     }
   };
 
-  const handleSearchUsers = async (query: string) => {
-    if (query.length === 0) {
+  const handleSearchUsers = (query: string) => {
+    if (query.length > 0) {
+      const users = mockUsers.filter(user => 
+        user.id !== currentUser?.id && // Exclude current user
+        user.display_name.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredUsers(users);
+    } else {
       setFilteredUsers([]);
-      return;
-    }
-    
-    try {
-      // Search for users in Supabase
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .neq('id', currentUser?.id || '')
-        .ilike('display_name', `%${query}%`)
-        .limit(10);
-      
-      if (error) throw error;
-      
-      setFilteredUsers(data as User[]);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      toast.error('Failed to search users');
     }
   };
 
@@ -158,7 +121,7 @@ const MessagesPage: React.FC = () => {
 
   const navigateToConversation = (conversationId: string, type: 'private' | 'chatroom') => {
     if (type === 'private') {
-      const otherParticipant = conversations
+      const otherParticipant = userConversations
         .find(conv => conv.id === conversationId)
         ?.participants?.find(p => p.id !== currentUser?.id);
       
@@ -270,11 +233,7 @@ const MessagesPage: React.FC = () => {
 
         {/* Conversation List */}
         <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cendy-primary" />
-            </div>
-          ) : filteredConversations.length > 0 ? (
+          {filteredConversations.length > 0 ? (
             <div>
               {filteredConversations.map(conversation => (
                 <div 

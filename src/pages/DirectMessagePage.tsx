@@ -3,11 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { ArrowLeft, Send, Image, Smile, Paperclip } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { Message, User } from '@/types';
 import MessageList from '@/components/MessageList';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 const DirectMessagePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -17,105 +17,62 @@ const DirectMessagePage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [recipient, setRecipient] = useState<User | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Find the user and their messages
   useEffect(() => {
-    const loadUserAndMessages = async () => {
-      if (!userId || !currentUser) return;
-      
-      setIsLoading(true);
-      try {
-        // Fetch the recipient user
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-          
-        if (userError) throw userError;
-        if (!userData) throw new Error('User not found');
-        
-        // Convert to our User type
-        const recipientUser: User = {
-          ...userData,
-          created_at: new Date(userData.created_at),
-          updated_at: new Date(userData.updated_at),
-        };
-        
-        setRecipient(recipientUser);
-        
-        // TODO: In a real implementation, we would fetch actual direct messages
-        // For now, we'll create some placeholder messages
-        const conversationId = `conv-${Math.min(currentUser.id, userId)}-${Math.max(currentUser.id, userId)}`;
-        
-        // Check if we have existing messages
-        const { data: existingMessages, error: messagesError } = await supabase
-          .from('messages') // This table would need to be created
-          .select(`
-            *,
-            sender:sender_id(*)
-          `)
-          .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: true });
-          
-        // If the table doesn't exist yet, we'll use placeholder messages
-        if (messagesError || !existingMessages) {
-          console.log('Using placeholder messages');
-          const placeholderMessages: Message[] = [
-            {
-              id: `msg-${Date.now()}-1`,
-              conversation_id: conversationId,
-              sender_id: currentUser.id,
-              content: "Hey there! How's it going?",
-              created_at: new Date(Date.now() - 3600000 * 2), // 2 hours ago
-              is_read: true,
-              is_edited: false,
-              sender: currentUser
-            },
-            {
-              id: `msg-${Date.now()}-2`,
-              conversation_id: conversationId,
-              sender_id: userId,
-              content: "I'm doing well, thanks for asking!",
-              created_at: new Date(Date.now() - 3600000), // 1 hour ago
-              is_read: true,
-              is_edited: false,
-              sender: recipientUser
-            },
-            {
-              id: `msg-${Date.now()}-3`,
-              conversation_id: conversationId,
-              sender_id: currentUser.id,
-              content: "Great to hear! What have you been up to lately?",
-              created_at: new Date(Date.now() - 1800000), // 30 minutes ago
-              is_read: true,
-              is_edited: false,
-              sender: currentUser
-            }
-          ];
-          
-          setMessages(placeholderMessages);
-        } else {
-          // Use real messages if they exist
-          setMessages(existingMessages.map(msg => ({
-            ...msg,
-            created_at: new Date(msg.created_at),
-          })) as Message[]);
-        }
-      } catch (error) {
-        console.error('Error loading user or messages:', error);
-        toast.error('Failed to load conversation');
-      } finally {
-        setIsLoading(false);
-      }
+    if (!userId || !currentUser) return;
+    
+    // In a real app, this would fetch the recipient and messages from the API
+    // For now we'll use mock data
+    const mockRecipient: User = {
+      id: userId,
+      display_name: "Test User",
+      verification_status: "verified",
+      auth_provider: "google",
+      block_status: false,
+      is_deleted: false,
+      created_at: new Date(),
+      updated_at: new Date()
     };
     
-    loadUserAndMessages();
+    setRecipient(mockRecipient);
     
-    // TODO: Set up real-time subscription for direct messages
-    // This would be implemented once the messages table is created
+    // Create some mock messages for demo purposes
+    const mockMessages: Message[] = [
+      {
+        id: `msg-${Date.now()}-1`,
+        conversation_id: `conv-${currentUser.id}-${userId}`,
+        sender_id: currentUser.id,
+        content: "Hey there! How's it going?",
+        created_at: new Date(Date.now() - 3600000 * 2), // 2 hours ago
+        is_read: true,
+        is_edited: false,
+        sender: currentUser
+      },
+      {
+        id: `msg-${Date.now()}-2`,
+        conversation_id: `conv-${currentUser.id}-${userId}`,
+        sender_id: userId,
+        content: "I'm doing well, thanks for asking!",
+        created_at: new Date(Date.now() - 3600000), // 1 hour ago
+        is_read: true,
+        is_edited: false,
+        sender: mockRecipient
+      },
+      {
+        id: `msg-${Date.now()}-3`,
+        conversation_id: `conv-${currentUser.id}-${userId}`,
+        sender_id: currentUser.id,
+        content: "Great to hear! What have you been up to lately?",
+        created_at: new Date(Date.now() - 1800000), // 30 minutes ago
+        is_read: true,
+        is_edited: false,
+        sender: currentUser
+      }
+    ];
+    
+    setMessages(mockMessages);
   }, [userId, currentUser]);
   
   // Scroll to bottom of messages
@@ -123,14 +80,12 @@ const DirectMessagePage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!message.trim() || !currentUser || !recipient) return;
-    
-    const conversationId = `conv-${Math.min(currentUser.id, userId!)}-${Math.max(currentUser.id, userId!)}`;
     
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
-      conversation_id: conversationId,
+      conversation_id: `conv-${currentUser.id}-${recipient.id}`,
       sender_id: currentUser.id,
       content: message,
       created_at: new Date(),
@@ -140,25 +95,12 @@ const DirectMessagePage: React.FC = () => {
       ...(replyingTo ? { reply_to_id: replyingTo.id } : {})
     };
     
-    // TODO: In a real implementation, we would send the message to the API
-    // For now, we'll just add it to the local state
     setMessages([...messages, newMessage]);
     setMessage('');
     setReplyingTo(null);
     
+    // In a real app, you would send the message to the API
     toast.success("Message sent");
-    
-    // In the future, this would be an API call:
-    // const { data, error } = await supabase
-    //   .from('messages')
-    //   .insert({
-    //     conversation_id: conversationId,
-    //     sender_id: currentUser.id,
-    //     content: message,
-    //     ...(replyingTo ? { reply_to_id: replyingTo.id } : {})
-    //   })
-    //   .select()
-    //   .single();
   };
   
   const handleReply = (msg: Message) => {
@@ -168,16 +110,6 @@ const DirectMessagePage: React.FC = () => {
   const cancelReply = () => {
     setReplyingTo(null);
   };
-  
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="flex justify-center items-center h-screen">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cendy-primary" />
-        </div>
-      </Layout>
-    );
-  }
   
   if (!recipient) {
     return (
