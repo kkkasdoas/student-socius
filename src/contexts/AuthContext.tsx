@@ -7,7 +7,6 @@ import { getCurrentUser, updateUserProfile as updateUserProfileHelper } from '@/
 type AuthContextType = {
   currentUser: User | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{
     success: boolean;
     error?: string;
@@ -18,22 +17,15 @@ type AuthContextType = {
   }>;
   logout: () => Promise<void>;
   updateUserProfile: (updates: Partial<User>) => Promise<User | null>;
-  loginWithGoogle: () => Promise<void>;
-  loginWithMicrosoft: () => Promise<void>;
-  loginWithApple: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   isLoading: true,
-  isAuthenticated: false,
   login: async () => ({ success: false, error: 'Not implemented' }),
   signUp: async () => ({ success: false, error: 'Not implemented' }),
   logout: async () => {},
   updateUserProfile: async () => null,
-  loginWithGoogle: async () => {},
-  loginWithMicrosoft: async () => {},
-  loginWithApple: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -41,7 +33,6 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isAuthenticated = !!currentUser;
 
   // Fetch user profile on mount and session change
   useEffect(() => {
@@ -51,14 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           // Fetch user profile
           setTimeout(async () => {
-            try {
-              const user = await getCurrentUser();
-              setCurrentUser(user);
-            } catch (error) {
-              console.error('Error fetching user profile:', error);
-            } finally {
-              setIsLoading(false);
-            }
+            const user = await getCurrentUser();
+            setCurrentUser(user);
+            setIsLoading(false);
           }, 0);
         } else {
           setCurrentUser(null);
@@ -73,9 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Fetch user profile
         getCurrentUser().then(user => {
           setCurrentUser(user);
-          setIsLoading(false);
-        }).catch(error => {
-          console.error('Error fetching existing user profile:', error);
           setIsLoading(false);
         });
       } else {
@@ -128,61 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginWithGoogle = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/feed',
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Google login error:', error.message);
-      }
-    } catch (error: any) {
-      console.error('Google login error:', error);
-    }
-  };
-
-  const loginWithMicrosoft = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          redirectTo: window.location.origin + '/feed',
-        }
-      });
-
-      if (error) {
-        console.error('Microsoft login error:', error.message);
-      }
-    } catch (error: any) {
-      console.error('Microsoft login error:', error);
-    }
-  };
-
-  const loginWithApple = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: window.location.origin + '/feed',
-        }
-      });
-
-      if (error) {
-        console.error('Apple login error:', error.message);
-      }
-    } catch (error: any) {
-      console.error('Apple login error:', error);
-    }
-  };
-
   const logout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -199,18 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      currentUser, 
-      isLoading, 
-      isAuthenticated,
-      login, 
-      signUp, 
-      logout, 
-      updateUserProfile,
-      loginWithGoogle,
-      loginWithMicrosoft,
-      loginWithApple
-    }}>
+    <AuthContext.Provider value={{ currentUser, isLoading, login, signUp, logout, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

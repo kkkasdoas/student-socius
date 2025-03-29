@@ -9,6 +9,7 @@ export type User = {
   auth_provider: 'google' | 'microsoft' | 'apple';
   login_email?: string;
   login_name?: string;
+  last_login?: Date;
   block_status: boolean;
   is_deleted: boolean;
   created_at: Date;
