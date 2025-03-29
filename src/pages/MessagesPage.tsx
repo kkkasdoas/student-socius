@@ -1,4 +1,5 @@
 
+// Replace the search bar section only
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Search, ChevronLeft, Plus } from 'lucide-react';
@@ -7,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { mockChatRooms, mockUsers } from '@/utils/mockData';
+import { mockConversations, mockUsers } from '@/utils/mockData';
 import { cn } from '@/lib/utils';
 import { format, isToday, formatDistanceToNow } from 'date-fns';
 
@@ -20,20 +21,10 @@ const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  // Create conversations from mock chat rooms for the current user
-  const userConversations: Conversation[] = mockChatRooms.map(room => ({
-    id: room.id,
-    type: 'chatroom',
-    chatroom_name: room.chatroom_name || 'Unnamed Group',
-    photo: room.chatroom_photo,
-    post_id: room.post_id,
-    last_message_content: room.lastMessage?.content,
-    last_message_sender_id: room.lastMessage?.sender_id,
-    last_message_timestamp: room.lastMessage?.created_at,
-    created_at: room.created_at,
-    updated_at: room.updated_at,
-    participants: room.participants
-  }));
+  // Get all conversations for the current user from mock data
+  const userConversations = mockConversations.filter(conv => 
+    conv.participants?.some(participant => participant.id === currentUser?.id)
+  );
 
   // Filter conversations based on search query and active tab
   const filteredConversations = userConversations
@@ -43,11 +34,11 @@ const MessagesPage: React.FC = () => {
         // For private chats, search by participant name
         if (conv.type === 'private') {
           const otherParticipant = conv.participants?.find(p => p.id !== currentUser?.id);
-          return otherParticipant?.display_name.toLowerCase().includes(searchQuery.toLowerCase());
+          return otherParticipant?.displayName.toLowerCase().includes(searchQuery.toLowerCase());
         } 
         // For chatrooms, search by chatroom name
-        else if (conv.chatroom_name) {
-          return conv.chatroom_name.toLowerCase().includes(searchQuery.toLowerCase());
+        else if (conv.chatroomName) {
+          return conv.chatroomName.toLowerCase().includes(searchQuery.toLowerCase());
         }
         return false;
       }
@@ -59,8 +50,8 @@ const MessagesPage: React.FC = () => {
     })
     .sort((a, b) => {
       // Sort by latest message timestamp
-      const timeA = a.last_message_timestamp ? new Date(a.last_message_timestamp).getTime() : 0;
-      const timeB = b.last_message_timestamp ? new Date(b.last_message_timestamp).getTime() : 0;
+      const timeA = a.lastMessageTimestamp ? new Date(a.lastMessageTimestamp).getTime() : 0;
+      const timeB = b.lastMessageTimestamp ? new Date(b.lastMessageTimestamp).getTime() : 0;
       return timeB - timeA;
     });
 
@@ -76,10 +67,10 @@ const MessagesPage: React.FC = () => {
 
   const getConversationTitle = (conversation: Conversation) => {
     if (conversation.type === 'chatroom') {
-      return conversation.chatroom_name || 'Unnamed Group';
+      return conversation.chatroomName || 'Unnamed Group';
     } else {
       const otherParticipant = conversation.participants?.find(p => p.id !== currentUser?.id);
-      return otherParticipant?.display_name || 'Unknown User';
+      return otherParticipant?.displayName || 'Unknown User';
     }
   };
 
@@ -88,16 +79,16 @@ const MessagesPage: React.FC = () => {
       return conversation.photo || undefined;
     } else {
       const otherParticipant = conversation.participants?.find(p => p.id !== currentUser?.id);
-      return otherParticipant?.profile_picture_url || undefined;
+      return otherParticipant?.profilePictureUrl || undefined;
     }
   };
 
   const getConversationInitials = (conversation: Conversation) => {
     if (conversation.type === 'chatroom') {
-      return (conversation.chatroom_name || 'UG').substring(0, 2).toUpperCase();
+      return (conversation.chatroomName || 'UG').substring(0, 2).toUpperCase();
     } else {
       const otherParticipant = conversation.participants?.find(p => p.id !== currentUser?.id);
-      return (otherParticipant?.display_name || 'U').substring(0, 2).toUpperCase();
+      return (otherParticipant?.displayName || 'U').substring(0, 2).toUpperCase();
     }
   };
 
@@ -105,7 +96,7 @@ const MessagesPage: React.FC = () => {
     if (query.length > 0) {
       const users = mockUsers.filter(user => 
         user.id !== currentUser?.id && // Exclude current user
-        user.display_name.toLowerCase().includes(query.toLowerCase())
+        user.displayName.toLowerCase().includes(query.toLowerCase())
       );
       setFilteredUsers(users);
     } else {
@@ -121,7 +112,7 @@ const MessagesPage: React.FC = () => {
 
   const navigateToConversation = (conversationId: string, type: 'private' | 'chatroom') => {
     if (type === 'private') {
-      const otherParticipant = userConversations
+      const otherParticipant = mockConversations
         .find(conv => conv.id === conversationId)
         ?.participants?.find(p => p.id !== currentUser?.id);
       
@@ -251,11 +242,11 @@ const MessagesPage: React.FC = () => {
                         {getConversationTitle(conversation)}
                       </h3>
                       <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
-                        {formatMessageTime(conversation.last_message_timestamp)}
+                        {formatMessageTime(conversation.lastMessageTimestamp)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 truncate">
-                      {conversation.last_message_content || 'No messages yet'}
+                      {conversation.lastMessageContent || 'No messages yet'}
                     </p>
                   </div>
                 </div>
@@ -299,11 +290,11 @@ const MessagesPage: React.FC = () => {
                   onClick={() => startConversation(user.id)}
                 >
                   <Avatar className="h-10 w-10 mr-3">
-                    <AvatarImage src={user.profile_picture_url} />
-                    <AvatarFallback>{user.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={user.profilePictureUrl} />
+                    <AvatarFallback>{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className="font-medium text-gray-900">{user.display_name}</h4>
+                    <h4 className="font-medium text-gray-900">{user.displayName}</h4>
                     <p className="text-xs text-gray-500">{user.university || 'No university'}</p>
                   </div>
                 </div>
