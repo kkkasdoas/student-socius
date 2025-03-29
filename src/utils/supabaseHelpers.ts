@@ -1,24 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
-import { User, Post, Comment, Reaction, ChatRoom, ChatRoomParticipant, ChatroomMessage, UserSettings } from '@/types';
-
-// Helper function to transform snake_case keys to camelCase
-export const transformSnakeToCamel = <T>(obj: any): T => {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(item => transformSnakeToCamel<any>(item)) as unknown as T;
-  }
-
-  const transformed: any = {};
-  Object.keys(obj).forEach(key => {
-    const value = obj[key];
-    transformed[key] = transformSnakeToCamel(value);
-  });
-
-  return transformed as T;
-};
+import { User, Post, Comment, Reaction, ChatRoom, ChatRoomParticipant, ChatroomMessage, UserSettings, Message, Conversation } from '@/types';
+import { 
+  dbUserToAppUser, 
+  dbPostToAppPost, 
+  dbCommentToAppComment, 
+  dbReactionToAppReaction,
+  dbChatroomToAppChatroom,
+  dbChatroomParticipantToAppChatroomParticipant,
+  dbChatroomMessageToAppChatroomMessage
+} from './adapters';
 
 // Get current user profile
 export const getCurrentUser = async (): Promise<User | null> => {
@@ -36,11 +26,7 @@ export const getCurrentUser = async (): Promise<User | null> => {
     return null;
   }
 
-  return {
-    ...data,
-    created_at: new Date(data.created_at),
-    updated_at: new Date(data.updated_at),
-  } as User;
+  return dbUserToAppUser(data);
 };
 
 // Fetch posts with user and reactions data
@@ -68,12 +54,7 @@ export const fetchPosts = async (channelType: string, university?: string): Prom
 
   if (!data) return [];
 
-  return data.map(post => ({
-    ...post,
-    created_at: new Date(post.created_at),
-    updated_at: new Date(post.updated_at),
-    reactions: post.reactions || [],
-  })) as Post[];
+  return data.map(post => dbPostToAppPost(post));
 };
 
 // Fetch post by ID
@@ -93,12 +74,7 @@ export const fetchPostById = async (postId: string): Promise<Post | null> => {
     return null;
   }
 
-  return {
-    ...data,
-    created_at: new Date(data.created_at),
-    updated_at: new Date(data.updated_at),
-    reactions: data.reactions || [],
-  } as Post;
+  return dbPostToAppPost(data);
 };
 
 // Fetch comments for a post
@@ -119,10 +95,7 @@ export const fetchComments = async (postId: string): Promise<Comment[]> => {
 
   if (!data) return [];
 
-  return data.map(comment => ({
-    ...comment,
-    created_at: new Date(comment.created_at),
-  })) as Comment[];
+  return data.map(comment => dbCommentToAppComment(comment));
 };
 
 // Create a new reaction
@@ -162,10 +135,7 @@ export const addReaction = async (postId: string, userId: string, type: 'like' |
       return null;
     }
 
-    return {
-      ...data,
-      created_at: new Date(data.created_at),
-    } as Reaction;
+    return dbReactionToAppReaction(data);
   }
 
   // Otherwise create a new reaction
@@ -184,10 +154,7 @@ export const addReaction = async (postId: string, userId: string, type: 'like' |
     return null;
   }
 
-  return {
-    ...data,
-    created_at: new Date(data.created_at),
-  } as Reaction;
+  return dbReactionToAppReaction(data);
 };
 
 // Fetch chatroom participants
@@ -207,10 +174,7 @@ export const fetchChatroomParticipants = async (chatroomId: string): Promise<Cha
 
   if (!data) return [];
 
-  return data.map(participant => ({
-    ...participant,
-    joined_at: new Date(participant.joined_at),
-  })) as ChatRoomParticipant[];
+  return data.map(participant => dbChatroomParticipantToAppChatroomParticipant(participant));
 };
 
 // Fetch chatroom messages
@@ -231,10 +195,7 @@ export const fetchChatroomMessages = async (chatroomId: string): Promise<Chatroo
 
   if (!data) return [];
 
-  return data.map(message => ({
-    ...message,
-    created_at: new Date(message.created_at),
-  })) as ChatroomMessage[];
+  return data.map(message => dbChatroomMessageToAppChatroomMessage(message));
 };
 
 // Send a chatroom message
@@ -263,10 +224,7 @@ export const sendChatroomMessage = async (
     return null;
   }
 
-  return {
-    ...data,
-    created_at: new Date(data.created_at),
-  } as ChatroomMessage;
+  return dbChatroomMessageToAppChatroomMessage(data);
 };
 
 // Fetch user settings
@@ -285,26 +243,31 @@ export const fetchUserSettings = async (userId: string): Promise<UserSettings | 
   if (!data) return null;
 
   return {
-    ...data,
+    user_id: data.user_id,
+    mute_all_notifications: data.mute_all_notifications || false,
+    private_chat_notifications: data.private_chat_notifications || true,
+    chatroom_notifications: data.chatroom_notifications || true,
+    dark_mode: data.dark_mode || false,
+    language: data.language === 'vietnamese' ? 'vietnamese' : 'english',
     created_at: new Date(data.created_at),
     updated_at: new Date(data.updated_at),
-    // Ensure language is one of the allowed values
-    language: (data.language === 'vietnamese' ? 'vietnamese' : 'english') as 'english' | 'vietnamese',
-  } as UserSettings;
+  };
 };
 
 // Update user settings
 export const updateUserSettings = async (settings: Partial<UserSettings> & { user_id: string }): Promise<UserSettings | null> => {
+  const updateData = {
+    ...settings,
+    // Ensure created_at doesn't get sent in the update
+    created_at: undefined,
+    updated_at: undefined,
+    // Ensure language is one of the allowed values
+    language: settings.language === 'vietnamese' ? 'vietnamese' : 'english',
+  };
+
   const { data, error } = await supabase
     .from('user_settings')
-    .update({
-      ...settings,
-      // Ensure created_at doesn't get sent in the update
-      created_at: undefined,
-      updated_at: undefined,
-      // Ensure language is one of the allowed values
-      language: settings.language === 'vietnamese' ? 'vietnamese' : 'english',
-    })
+    .update(updateData)
     .eq('user_id', settings.user_id)
     .select()
     .single();
@@ -315,10 +278,15 @@ export const updateUserSettings = async (settings: Partial<UserSettings> & { use
   }
 
   return {
-    ...data,
+    user_id: data.user_id,
+    mute_all_notifications: data.mute_all_notifications || false,
+    private_chat_notifications: data.private_chat_notifications || true,
+    chatroom_notifications: data.chatroom_notifications || true,
+    dark_mode: data.dark_mode || false,
+    language: data.language === 'vietnamese' ? 'vietnamese' : 'english',
     created_at: new Date(data.created_at),
     updated_at: new Date(data.updated_at),
-  } as UserSettings;
+  };
 };
 
 // Fetch conversations for a user
@@ -342,24 +310,14 @@ export const fetchChatrooms = async (): Promise<ChatRoom[]> => {
 
   if (!data) return [];
 
-  const chatrooms = data.map(chatroom => ({
-    ...chatroom,
-    created_at: new Date(chatroom.created_at),
-    updated_at: new Date(chatroom.updated_at),
-    participants: [], // Initialize with empty array
-  })) as ChatRoom[];
-
-  // For each chatroom, fetch participants
-  for (const chatroom of chatrooms) {
+  const chatrooms: ChatRoom[] = [];
+  
+  // For each chatroom, fetch participants and messages
+  for (const chatroom of data) {
     const participants = await fetchChatroomParticipants(chatroom.id);
-    chatroom.participants = participants.map(p => p.user!).filter(Boolean);
-    
-    // Fetch last message
     const messages = await fetchChatroomMessages(chatroom.id);
-    chatroom.messages = messages;
-    if (messages.length > 0) {
-      chatroom.lastMessage = messages[messages.length - 1];
-    }
+    
+    chatrooms.push(dbChatroomToAppChatroom(chatroom, participants, messages));
   }
 
   return chatrooms;
@@ -367,16 +325,18 @@ export const fetchChatrooms = async (): Promise<ChatRoom[]> => {
 
 // Update user profile
 export const updateUserProfile = async (userId: string, updates: Partial<User>): Promise<User | null> => {
+  const updateData = {
+    ...updates,
+    // Ensure these values aren't updated accidentally
+    id: undefined,
+    auth_provider: undefined,
+    created_at: undefined,
+    updated_at: undefined,
+  };
+
   const { data, error } = await supabase
     .from('profiles')
-    .update({
-      ...updates,
-      // Ensure these values aren't updated accidentally
-      id: undefined,
-      auth_provider: undefined,
-      created_at: undefined,
-      updated_at: undefined,
-    })
+    .update(updateData)
     .eq('id', userId)
     .select()
     .single();
@@ -386,15 +346,11 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>):
     return null;
   }
 
-  return {
-    ...data,
-    created_at: new Date(data.created_at),
-    updated_at: new Date(data.updated_at),
-    // Make sure verification_status is one of the allowed values
-    verification_status: data.verification_status === 'verified' ? 'verified' : 'unverified',
-    // Make sure auth_provider is one of the allowed values
-    auth_provider: ['google', 'microsoft', 'apple'].includes(data.auth_provider) 
-      ? data.auth_provider as 'google' | 'microsoft' | 'apple'
-      : 'google',
-  } as User;
+  return dbUserToAppUser(data);
+};
+
+// Add missing Message type to types/index.ts
+export const fetchMessages = async (conversationId: string): Promise<Message[]> => {
+  // Placeholder for future implementation
+  return [];
 };
