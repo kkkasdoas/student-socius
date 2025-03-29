@@ -113,100 +113,6 @@ export type Database = {
           },
         ]
       }
-      chatroom_messages: {
-        Row: {
-          chatroom_id: string
-          content: string
-          created_at: string
-          id: string
-          is_edited: boolean
-          is_read: boolean
-          reply_to_id: string | null
-          sender_id: string
-        }
-        Insert: {
-          chatroom_id: string
-          content: string
-          created_at?: string
-          id?: string
-          is_edited?: boolean
-          is_read?: boolean
-          reply_to_id?: string | null
-          sender_id: string
-        }
-        Update: {
-          chatroom_id?: string
-          content?: string
-          created_at?: string
-          id?: string
-          is_edited?: boolean
-          is_read?: boolean
-          reply_to_id?: string | null
-          sender_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chatroom_messages_chatroom_id_fkey"
-            columns: ["chatroom_id"]
-            isOneToOne: false
-            referencedRelation: "chat_rooms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chatroom_messages_reply_to_id_fkey"
-            columns: ["reply_to_id"]
-            isOneToOne: false
-            referencedRelation: "chatroom_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chatroom_messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      comments: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          post_id: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          post_id: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          post_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "posts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       hidden_posts: {
         Row: {
           created_at: string
@@ -264,17 +170,51 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "message_reports_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "chatroom_messages"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "message_reports_reporter_id_fkey"
             columns: ["reporter_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_edited: boolean
+          is_read: boolean
+          reply_to_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_edited?: boolean
+          is_read?: boolean
+          reply_to_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_edited?: boolean
+          is_read?: boolean
+          reply_to_id?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]

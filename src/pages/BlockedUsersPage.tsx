@@ -1,28 +1,88 @@
 
-import React, { useState } from 'react';
-import { ArrowLeft, UserX, User as UserIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, UserX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { mockUsers } from '@/utils/mockData';
 import { User } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const BlockedUsersPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  // In a real app, we'd fetch this from the backend
-  const [blockedUsers, setBlockedUsers] = useState<User[]>([
-    mockUsers[2], // Simulating that user has blocked some users
-    mockUsers[5]
-  ]);
+  const queryClient = useQueryClient();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const unblockUser = (userId: string) => {
-    setBlockedUsers(blockedUsers.filter(user => user.id !== userId));
-    toast.success("User unblocked successfully");
-    // In a real app, this would call an API to unblock the user
+  // Query to fetch blocked users
+  const { data: blockedUsers = [], isLoading: isFetchingBlocked } = useQuery({
+    queryKey: ['blockedUsers', currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser) return [];
+
+      const { data: blockedData, error } = await supabase
+        .from('blocked_users')
+        .select('blocked_id')
+        .eq('blocker_id', currentUser.id);
+
+      if (error) {
+        console.error('Error fetching blocked users:', error);
+        toast.error('Failed to load blocked users');
+        return [];
+      }
+
+      if (!blockedData.length) return [];
+
+      // Get full user profiles for the blocked users
+      const blockedIds = blockedData.map(item => item.blocked_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', blockedIds);
+
+      if (profilesError) {
+        console.error('Error fetching blocked profiles:', profilesError);
+        toast.error('Failed to load user profiles');
+        return [];
+      }
+
+      return profilesData as User[];
+    },
+    enabled: !!currentUser?.id,
+  });
+
+  // Mutation to unblock a user
+  const unblockUserMutation = useMutation({
+    mutationFn: async (blockedId: string) => {
+      if (!currentUser) throw new Error('You must be logged in');
+      
+      setIsLoading(true);
+      const { error } = await supabase
+        .from('blocked_users')
+        .delete()
+        .eq('blocker_id', currentUser.id)
+        .eq('blocked_id', blockedId);
+      
+      if (error) throw new Error(error.message);
+      return blockedId;
+    },
+    onSuccess: (blockedId) => {
+      queryClient.invalidateQueries({ queryKey: ['blockedUsers', currentUser?.id] });
+      toast.success("User unblocked successfully");
+      setIsLoading(false);
+    },
+    onError: (error) => {
+      console.error('Error unblocking user:', error);
+      toast.error('Failed to unblock user');
+      setIsLoading(false);
+    }
+  });
+
+  const handleUnblock = (userId: string) => {
+    unblockUserMutation.mutate(userId);
   };
 
   return (
@@ -41,7 +101,11 @@ const BlockedUsersPage: React.FC = () => {
         
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-2">
-          {blockedUsers.length > 0 ? (
+          {isFetchingBlocked ? (
+            <div className="p-4 flex justify-center">
+              <p className="text-gray-500">Loading blocked users...</p>
+            </div>
+          ) : blockedUsers.length > 0 ? (
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="p-3 border-b border-gray-100">
                 <p className="text-xs font-medium text-gray-500">
@@ -73,7 +137,8 @@ const BlockedUsersPage: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => unblockUser(user.id)}
+                    onClick={() => handleUnblock(user.id)}
+                    disabled={isLoading}
                     className="text-xs border-gray-200 hover:bg-gray-50"
                   >
                     Unblock

@@ -40,7 +40,9 @@ export const useNotifications = () => {
           setFcmToken(token);
           
           // Register token with our server
-          await registerTokenWithServer(currentUser.id, token);
+          if (token) {
+            await registerTokenWithServer(currentUser.id, token);
+          }
         } catch (error) {
           console.error('Error registering for notifications:', error);
         }
