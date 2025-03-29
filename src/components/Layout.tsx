@@ -9,7 +9,8 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, hideNav = false }) => {
-  const { isAuthenticated } = useAuth();
+  const { currentUser } = useAuth();
+  const isAuthenticated = !!currentUser;
   
   return (
     <div className="flex flex-col min-h-screen bg-cendy-bg">
