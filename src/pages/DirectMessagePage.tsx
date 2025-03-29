@@ -2,12 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import { mockUsers } from '@/utils/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Send, Image, Smile, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { Message, User } from '@/types';
+import { Message } from '@/types';
 import MessageList from '@/components/MessageList';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
 
 const DirectMessagePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -15,7 +15,7 @@ const DirectMessagePage: React.FC = () => {
   const { currentUser } = useAuth();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [recipient, setRecipient] = useState<User | null>(null);
+  const [recipient, setRecipient] = useState<any>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -23,51 +23,42 @@ const DirectMessagePage: React.FC = () => {
   useEffect(() => {
     if (!userId || !currentUser) return;
     
-    // In a real app, this would fetch the recipient and messages from the API
-    // For now we'll use mock data
-    const mockRecipient: User = {
-      id: userId,
-      display_name: "Test User",
-      verification_status: "verified",
-      auth_provider: "google",
-      block_status: false,
-      is_deleted: false,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    
-    setRecipient(mockRecipient);
+    // Find the user
+    const user = mockUsers.find(u => u.id === userId);
+    if (user) {
+      setRecipient(user);
+    }
     
     // Create some mock messages for demo purposes
     const mockMessages: Message[] = [
       {
         id: `msg-${Date.now()}-1`,
-        conversation_id: `conv-${currentUser.id}-${userId}`,
-        sender_id: currentUser.id,
+        conversationId: `conv-${currentUser.id}-${userId}`,
+        senderId: currentUser.id,
         content: "Hey there! How's it going?",
-        created_at: new Date(Date.now() - 3600000 * 2), // 2 hours ago
-        is_read: true,
-        is_edited: false,
+        createdAt: new Date(Date.now() - 3600000 * 2), // 2 hours ago
+        isRead: true,
+        isEdited: false,
         sender: currentUser
       },
       {
         id: `msg-${Date.now()}-2`,
-        conversation_id: `conv-${currentUser.id}-${userId}`,
-        sender_id: userId,
+        conversationId: `conv-${currentUser.id}-${userId}`,
+        senderId: userId,
         content: "I'm doing well, thanks for asking!",
-        created_at: new Date(Date.now() - 3600000), // 1 hour ago
-        is_read: true,
-        is_edited: false,
-        sender: mockRecipient
+        createdAt: new Date(Date.now() - 3600000), // 1 hour ago
+        isRead: true,
+        isEdited: false,
+        sender: user
       },
       {
         id: `msg-${Date.now()}-3`,
-        conversation_id: `conv-${currentUser.id}-${userId}`,
-        sender_id: currentUser.id,
+        conversationId: `conv-${currentUser.id}-${userId}`,
+        senderId: currentUser.id,
         content: "Great to hear! What have you been up to lately?",
-        created_at: new Date(Date.now() - 1800000), // 30 minutes ago
-        is_read: true,
-        is_edited: false,
+        createdAt: new Date(Date.now() - 1800000), // 30 minutes ago
+        isRead: true,
+        isEdited: false,
         sender: currentUser
       }
     ];
@@ -85,22 +76,19 @@ const DirectMessagePage: React.FC = () => {
     
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
-      conversation_id: `conv-${currentUser.id}-${recipient.id}`,
-      sender_id: currentUser.id,
+      conversationId: `conv-${currentUser.id}-${recipient.id}`,
+      senderId: currentUser.id,
       content: message,
-      created_at: new Date(),
-      is_read: false,
-      is_edited: false,
+      createdAt: new Date(),
+      isRead: false,
+      isEdited: false,
       sender: currentUser,
-      ...(replyingTo ? { reply_to_id: replyingTo.id } : {})
+      ...(replyingTo ? { replyToId: replyingTo.id } : {})
     };
     
     setMessages([...messages, newMessage]);
     setMessage('');
     setReplyingTo(null);
-    
-    // In a real app, you would send the message to the API
-    toast.success("Message sent");
   };
   
   const handleReply = (msg: Message) => {
@@ -140,18 +128,18 @@ const DirectMessagePage: React.FC = () => {
           </button>
           
           <img 
-            src={recipient.profile_picture_url || 'https://i.pravatar.cc/150?img=default'} 
-            alt={recipient.display_name} 
+            src={recipient.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
+            alt={recipient.displayName} 
             className="w-8 h-8 rounded-full object-cover border border-gray-200"
           />
           
           <div className="ml-2 flex-1">
             <h1 className="font-medium text-gray-800">
-              {recipient.display_name}
+              {recipient.displayName}
             </h1>
             <p className="text-xs text-gray-500">
               {recipient.university || 'Unverified User'}
-              {recipient.verification_status === 'verified' && (
+              {recipient.verificationStatus === 'verified' && (
                 <span className="ml-1 text-xs inline-flex items-center text-cendy-primary">
                   • Verified <span className="ml-0.5">✓</span>
                 </span>
@@ -172,7 +160,7 @@ const DirectMessagePage: React.FC = () => {
             <div className="flex-1 ml-2">
               <div className="flex justify-between">
                 <p className="text-xs text-gray-500">
-                  Replying to <span className="font-medium">{replyingTo.sender?.display_name}</span>
+                  Replying to <span className="font-medium">{replyingTo.sender?.displayName}</span>
                 </p>
                 <button 
                   className="p-0 h-auto text-gray-400 hover:text-gray-600 text-xs"

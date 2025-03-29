@@ -22,39 +22,39 @@ const ChatroomInfoPage: React.FC = () => {
     const mockParticipants: User[] = [
       {
         id: '123',
-        display_name: 'James Wilson',
+        displayName: 'James Wilson',
         university: 'TDTU University',
-        verification_status: 'verified',
-        auth_provider: 'google',
-        profile_picture_url: 'https://i.pravatar.cc/150?img=33',
-        block_status: false,
-        is_deleted: false,
-        created_at: new Date(),
-        updated_at: new Date()
+        verificationStatus: 'verified',
+        authProvider: 'google',
+        profilePictureUrl: 'https://i.pravatar.cc/150?img=33',
+        blockStatus: false,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       {
         id: '456',
-        display_name: 'Sarah Johnson',
+        displayName: 'Sarah Johnson',
         university: 'TDTU University',
-        verification_status: 'verified',
-        auth_provider: 'microsoft',
-        profile_picture_url: 'https://i.pravatar.cc/150?img=23',
-        block_status: false,
-        is_deleted: false,
-        created_at: new Date(),
-        updated_at: new Date()
+        verificationStatus: 'verified',
+        authProvider: 'microsoft',
+        profilePictureUrl: 'https://i.pravatar.cc/150?img=23',
+        blockStatus: false,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       {
         id: '789',
-        display_name: 'Michael Brown',
+        displayName: 'Michael Brown',
         university: 'TDTU University',
-        verification_status: 'verified',
-        auth_provider: 'apple',
-        profile_picture_url: 'https://i.pravatar.cc/150?img=53',
-        block_status: false,
-        is_deleted: false,
-        created_at: new Date(),
-        updated_at: new Date()
+        verificationStatus: 'verified',
+        authProvider: 'apple',
+        profilePictureUrl: 'https://i.pravatar.cc/150?img=53',
+        blockStatus: false,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     ];
     
@@ -64,12 +64,12 @@ const ChatroomInfoPage: React.FC = () => {
     
     const mockChatRoom: ChatRoom = {
       id: roomId || 'unknown',
-      chatroom_name: 'Economics Study Group',
-      chatroom_photo: 'https://i.pravatar.cc/150?img=group',
+      chatroomName: 'Economics Study Group',
+      chatroomPhoto: 'https://i.pravatar.cc/150?img=group',
       participants: mockParticipants,
       messages: [],
-      created_at: new Date(),
-      updated_at: new Date()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     
     setChatRoom(mockChatRoom);
@@ -110,15 +110,15 @@ const ChatroomInfoPage: React.FC = () => {
         <div className="p-6 bg-white mb-2 flex flex-col items-center">
           <Avatar className="w-24 h-24 mb-4">
             <AvatarImage 
-              src={chatRoom.chatroom_photo || "https://i.pravatar.cc/150?img=group"} 
-              alt={chatRoom.chatroom_name || "Chatroom"} 
+              src={chatRoom.chatroomPhoto || "https://i.pravatar.cc/150?img=group"} 
+              alt={chatRoom.chatroomName || "Chatroom"} 
             />
             <AvatarFallback className="text-2xl">
-              {chatRoom.chatroom_name ? chatRoom.chatroom_name.substring(0, 2).toUpperCase() : "CR"}
+              {chatRoom.chatroomName ? chatRoom.chatroomName.substring(0, 2).toUpperCase() : "CR"}
             </AvatarFallback>
           </Avatar>
           
-          <h2 className="text-xl font-bold mb-1">{chatRoom.chatroom_name || "Chatroom"}</h2>
+          <h2 className="text-xl font-bold mb-1">{chatRoom.chatroomName || "Chatroom"}</h2>
           
           <p className="text-gray-500 mb-4">
             {chatRoom.participants.length} participants
@@ -150,16 +150,16 @@ const ChatroomInfoPage: React.FC = () => {
                   <div key={user.id} className="flex items-center p-2 hover:bg-gray-50 rounded-lg">
                     <Avatar className="w-12 h-12 mr-3">
                       <AvatarImage 
-                        src={user.profile_picture_url || "https://i.pravatar.cc/150?img=default"} 
-                        alt={user.display_name} 
+                        src={user.profilePictureUrl || "https://i.pravatar.cc/150?img=default"} 
+                        alt={user.displayName} 
                       />
-                      <AvatarFallback>{user.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     
                     <div className="flex-1">
                       <div className="flex items-center">
-                        <h3 className="font-medium">{user.display_name}</h3>
-                        {user.verification_status === 'verified' && (
+                        <h3 className="font-medium">{user.displayName}</h3>
+                        {user.verificationStatus === 'verified' && (
                           <span className="ml-1 text-xs text-blue-500">✓</span>
                         )}
                       </div>
