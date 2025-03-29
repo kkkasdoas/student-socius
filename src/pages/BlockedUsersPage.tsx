@@ -7,16 +7,37 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { mockUsers } from '@/utils/mockData';
 import { User } from '@/types';
 
 const BlockedUsersPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  
   // In a real app, we'd fetch this from the backend
   const [blockedUsers, setBlockedUsers] = useState<User[]>([
-    mockUsers[2], // Simulating that user has blocked some users
-    mockUsers[5]
+    {
+      id: "blocked-user-1",
+      display_name: "John Smith",
+      verification_status: "verified",
+      university: "Harvard University",
+      profile_picture_url: "https://i.pravatar.cc/150?img=2",
+      auth_provider: "google",
+      block_status: false,
+      is_deleted: false,
+      created_at: new Date(),
+      updated_at: new Date()
+    },
+    {
+      id: "blocked-user-2",
+      display_name: "Jane Doe",
+      verification_status: "unverified",
+      profile_picture_url: "https://i.pravatar.cc/150?img=10",
+      auth_provider: "apple",
+      block_status: false,
+      is_deleted: false,
+      created_at: new Date(),
+      updated_at: new Date()
+    }
   ]);
 
   const unblockUser = (userId: string) => {
@@ -57,13 +78,13 @@ const BlockedUsersPage: React.FC = () => {
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-3">
                       <AvatarImage 
-                        src={user.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} 
-                        alt={user.displayName} 
+                        src={user.profile_picture_url || 'https://i.pravatar.cc/150?img=default'} 
+                        alt={user.display_name} 
                       />
-                      <AvatarFallback>{user.displayName.substring(0, 2)}</AvatarFallback>
+                      <AvatarFallback>{user.display_name.substring(0, 2)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{user.displayName}</p>
+                      <p className="text-sm font-medium text-gray-800">{user.display_name}</p>
                       <p className="text-xs text-gray-500">
                         {user.university || 'No university'}
                       </p>

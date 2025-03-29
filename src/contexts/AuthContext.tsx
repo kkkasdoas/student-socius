@@ -1,403 +1,134 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
-import { toast } from 'sonner';
-import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser, updateUserProfile as updateUserProfileHelper } from '@/utils/supabaseHelpers';
 
-export type AuthProviderProps = {
-  children: React.ReactNode;
-};
-
-export interface UserProfile {
-  id: string;
-  displayName: string;
-  bio?: string;
-  university?: string;
-  verificationStatus: 'verified' | 'unverified';
-  profilePictureUrl?: string;
-  authProvider: 'google' | 'microsoft' | 'apple';
-  loginEmail?: string;
-  login_name?: string;
-  blockStatus: boolean;
-  isDeleted: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export type AuthContextType = {
+type AuthContextType = {
   currentUser: User | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
-  isVerified: boolean;
-  loginWithGoogle: () => Promise<void>;
-  loginWithMicrosoft: () => Promise<void>;
-  loginWithApple: () => Promise<void>;
-  logout: () => void;
-  setDisplayName: (name: string) => Promise<void>;
-  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
+  login: (email: string, password: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  signUp: (email: string, password: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  logout: () => Promise<void>;
+  updateUserProfile: (updates: Partial<User>) => Promise<User | null>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  currentUser: null,
+  isLoading: true,
+  login: async () => ({ success: false, error: 'Not implemented' }),
+  signUp: async () => ({ success: false, error: 'Not implemented' }),
+  logout: async () => {},
+  updateUserProfile: async () => null,
+});
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [needsDisplayName, setNeedsDisplayName] = useState<boolean>(false);
-  const [authProvider, setAuthProvider] = useState<'google' | 'microsoft' | 'apple' | null>(null);
-  const [userEmail, setUserEmail] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch user profile on mount and session change
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setIsLoading(true);
+      (event, session) => {
         if (session?.user) {
-          // Get profile data
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (error) {
-            console.error('Error fetching profile:', error);
-            setCurrentUser(null);
-          } else if (profile) {
-            // Convert to our User type
-            const userData: User = {
-              id: profile.id,
-              displayName: profile.display_name,
-              bio: profile.bio || undefined,
-              university: profile.university || undefined,
-              verificationStatus: profile.verification_status as 'verified' | 'unverified',
-              profilePictureUrl: profile.profile_picture_url || undefined,
-              authProvider: profile.auth_provider as 'google' | 'microsoft' | 'apple',
-              loginEmail: profile.login_email || undefined,
-              login_name: profile.login_name || undefined,
-              blockStatus: profile.block_status,
-              isDeleted: profile.is_deleted,
-              createdAt: new Date(profile.created_at),
-              updatedAt: new Date(profile.updated_at)
-            };
-            
-            setCurrentUser(userData);
-          }
+          // Fetch user profile
+          setTimeout(async () => {
+            const user = await getCurrentUser();
+            setCurrentUser(user);
+            setIsLoading(false);
+          }, 0);
         } else {
           setCurrentUser(null);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
-    
-    // THEN check for existing session
+
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
+      if (session?.user) {
+        // Fetch user profile
+        getCurrentUser().then(user => {
+          setCurrentUser(user);
+          setIsLoading(false);
+        });
+      } else {
         setIsLoading(false);
       }
     });
-    
+
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  const isAuthenticated = !!currentUser;
-  const isVerified = isAuthenticated && currentUser?.verificationStatus === 'verified';
-
-  const loginWithGoogle = async (): Promise<void> => {
+  const login = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/feed`
-        }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      
+
       if (error) {
-        throw error;
+        console.error('Login error:', error.message);
+        return { success: false, error: error.message };
       }
-    } catch (error) {
-      console.error('Google login error:', error);
-      toast.error('Login failed. Please try again.');
-      setIsLoading(false);
+
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Login error:', error.message);
+      return { success: false, error: error.message };
     }
   };
 
-  const loginWithMicrosoft = async (): Promise<void> => {
+  const signUp = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          redirectTo: `${window.location.origin}/feed`
-        }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
       });
-      
+
       if (error) {
-        throw error;
+        console.error('Sign up error:', error.message);
+        return { success: false, error: error.message };
       }
-    } catch (error) {
-      console.error('Microsoft login error:', error);
-      toast.error('Login failed. Please try again.');
-      setIsLoading(false);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Sign up error:', error.message);
+      return { success: false, error: error.message };
     }
   };
 
-  const loginWithApple = async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${window.location.origin}/feed`
-        }
-      });
-      
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error('Apple login error:', error);
-      toast.error('Login failed. Please try again.');
-      setIsLoading(false);
-    }
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
   };
 
-  const setDisplayName = async (name: string): Promise<void> => {
-    if (!supabase.auth.getUser()) {
-      toast.error("Not authenticated");
-      return;
-    }
+  const updateUserProfile = async (updates: Partial<User>) => {
+    if (!currentUser) return null;
     
-    try {
-      setIsLoading(true);
-      
-      // Update profile
-      const { error } = await supabase
-        .from('profiles')
-        .update({ display_name: name })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      // Refresh user profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-      
-      if (profile) {
-        const userData: User = {
-          id: profile.id,
-          displayName: profile.display_name,
-          bio: profile.bio || undefined,
-          university: profile.university || undefined,
-          verificationStatus: profile.verification_status as 'verified' | 'unverified',
-          profilePictureUrl: profile.profile_picture_url || undefined,
-          authProvider: profile.auth_provider as 'google' | 'microsoft' | 'apple',
-          loginEmail: profile.login_email || undefined,
-          login_name: profile.login_name || undefined,
-          blockStatus: profile.block_status,
-          isDeleted: profile.is_deleted,
-          createdAt: new Date(profile.created_at),
-          updatedAt: new Date(profile.updated_at)
-        };
-        
-        setCurrentUser(userData);
-      }
-      
-      setNeedsDisplayName(false);
-      toast.success('Display name set successfully!');
-    } catch (error) {
-      console.error('Error setting display name:', error);
-      toast.error('Failed to set display name. Please try again.');
-    } finally {
-      setIsLoading(false);
+    const updatedUser = await updateUserProfileHelper(currentUser.id, updates);
+    if (updatedUser) {
+      setCurrentUser(updatedUser);
     }
-  };
-
-  const updateUserProfile = async (data: Partial<UserProfile>): Promise<void> => {
-    if (!currentUser) {
-      toast.error("Not authenticated");
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      
-      // Convert to snake_case for database
-      const dbData: any = {};
-      if (data.displayName) dbData.display_name = data.displayName;
-      if (data.bio !== undefined) dbData.bio = data.bio;
-      if (data.university !== undefined) dbData.university = data.university;
-      if (data.profilePictureUrl !== undefined) dbData.profile_picture_url = data.profilePictureUrl;
-      
-      // Update profile
-      const { error } = await supabase
-        .from('profiles')
-        .update(dbData)
-        .eq('id', currentUser.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      // Refresh user profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentUser.id)
-        .single();
-      
-      if (profile) {
-        const userData: User = {
-          id: profile.id,
-          displayName: profile.display_name,
-          bio: profile.bio || undefined,
-          university: profile.university || undefined,
-          verificationStatus: profile.verification_status as 'verified' | 'unverified',
-          profilePictureUrl: profile.profile_picture_url || undefined,
-          authProvider: profile.auth_provider as 'google' | 'microsoft' | 'apple',
-          loginEmail: profile.login_email || undefined,
-          login_name: profile.login_name || undefined,
-          blockStatus: profile.block_status,
-          isDeleted: profile.is_deleted,
-          createdAt: new Date(profile.created_at),
-          updatedAt: new Date(profile.updated_at)
-        };
-        
-        setCurrentUser(userData);
-      }
-      
-      toast.success('Profile updated successfully!');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = async (): void => {
-    try {
-      await supabase.auth.signOut();
-      setCurrentUser(null);
-      toast.success('Logged out successfully');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Failed to log out. Please try again.');
-    }
-  };
-
-  // Create the value object only once when dependencies change
-  const value = {
-    currentUser,
-    isLoading,
-    isAuthenticated,
-    isVerified,
-    loginWithGoogle,
-    loginWithMicrosoft,
-    loginWithApple,
-    logout,
-    setDisplayName,
-    updateUserProfile
+    return updatedUser;
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {needsDisplayName ? (
-        <DisplayNamePrompt setDisplayName={setDisplayName} />
-      ) : (
-        children
-      )}
+    <AuthContext.Provider value={{ currentUser, isLoading, login, signUp, logout, updateUserProfile }}>
+      {children}
     </AuthContext.Provider>
   );
-};
-
-interface DisplayNamePromptProps {
-  setDisplayName: (name: string) => Promise<void>;
-}
-
-const DisplayNamePrompt: React.FC<DisplayNamePromptProps> = ({ setDisplayName }) => {
-  const [name, setName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate name
-    if (name.length < 3) {
-      setError('Display name must be at least 3 characters');
-      return;
-    }
-    
-    if (name.length > 20) {
-      setError('Display name must be less than 20 characters');
-      return;
-    }
-    
-    if (!/[a-zA-Z]/.test(name)) {
-      setError('Display name must contain at least one letter');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    try {
-      await setDisplayName(name);
-    } catch (error) {
-      console.error('Error setting display name:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-scale-in">
-        <h2 className="text-2xl font-semibold mb-6 text-center">Choose a display name</h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError('');
-              }}
-              placeholder="Your display name"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cendy-primary/50 text-lg"
-              autoFocus
-            />
-            {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
-            <p className="mt-2 text-sm text-gray-500">Between 3-20 characters, must include at least one letter.</p>
-          </div>
-          
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-3 px-6 bg-cendy-primary text-white font-medium rounded-lg transition-all hover:bg-cendy-primary/90 disabled:opacity-70"
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

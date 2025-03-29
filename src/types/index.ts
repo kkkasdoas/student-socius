@@ -1,53 +1,53 @@
 
 export type User = {
   id: string;
-  displayName: string;
+  display_name: string;
   bio?: string;
   university?: string;
-  verificationStatus: 'verified' | 'unverified';
-  profilePictureUrl?: string;
-  authProvider: 'google' | 'microsoft' | 'apple';
-  loginEmail?: string;
+  verification_status: 'verified' | 'unverified';
+  profile_picture_url?: string;
+  auth_provider: 'google' | 'microsoft' | 'apple';
+  login_email?: string;
   login_name?: string;
-  lastLogin?: Date;
-  blockStatus: boolean;
-  isDeleted: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  last_login?: Date;
+  block_status: boolean;
+  is_deleted: boolean;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type Post = {
   id: string;
-  userId: string;
+  user_id: string;
   title: string;
   content: string;
   university: string;
-  conversationId?: string;
-  imageUrl?: string;
-  channelType: ChannelType;
+  conversation_id?: string;
+  image_url?: string;
+  channel_type: ChannelType;
   category?: 'Study' | 'Fun' | 'Drama' | 'Other';
-  isEdited: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  is_edited: boolean;
+  created_at: Date;
+  updated_at: Date;
   user: User;
   reactions: Reaction[];
 };
 
 export type Comment = {
   id: string;
-  postId: string;
-  userId: string;
+  post_id: string;
+  user_id: string;
   content: string;
-  createdAt: Date;
+  created_at: Date;
   user: User;
 };
 
 export type Reaction = {
   id: string;
-  postId: string;
-  userId: string;
+  post_id: string;
+  user_id: string;
   type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry';
-  createdAt: Date;
+  created_at: Date;
 };
 
 export type ChannelType = 'CampusGeneral' | 'Forum' | 'CampusCommunity' | 'Community';
@@ -61,102 +61,134 @@ export type ConversationType = 'private' | 'chatroom';
 export type Conversation = {
   id: string;
   type: ConversationType;
-  chatroomName?: string;
+  chatroom_name?: string;
   photo?: string;
-  postId?: string;
-  lastMessageContent?: string;
-  lastMessageSenderId?: string;
-  lastMessageTimestamp?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  post_id?: string;
+  last_message_content?: string;
+  last_message_sender_id?: string;
+  last_message_timestamp?: Date;
+  created_at: Date;
+  updated_at: Date;
   participants?: User[];
 };
 
 export type ConversationParticipant = {
-  conversationId: string;
-  userId: string;
+  conversation_id: string;
+  user_id: string;
   user?: User;
 };
 
 export type Message = {
   id: string;
-  conversationId: string;
-  senderId: string;
+  conversation_id: string;
+  sender_id: string;
   content: string;
-  createdAt: Date;
-  isRead: boolean;
-  isEdited: boolean;
-  replyToId?: string;
+  created_at: Date;
+  is_read: boolean;
+  is_edited: boolean;
+  reply_to_id?: string;
   sender?: User;
 };
 
-export type UserSettings = {
-  userId: string;
-  muteAllNotifications: boolean;
-  privateChatNotifications: boolean;
-  chatroomNotifications: boolean;
-  darkMode: boolean;
-  language: 'english' | 'vietnamese';
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type BlockedUser = {
-  blockerId: string;
-  blockedId: string;
-};
-
-export type MutedUser = {
-  muterId: string;
-  mutedId: string;
-};
-
-export type SavedPost = {
-  userId: string;
-  postId: string;
-};
-
-export type HiddenPost = {
-  userId: string;
-  postId: string;
-};
-
-export type UserReport = {
+export type ChatRoom = {
   id: string;
-  reporterId: string;
-  reportedId: string;
-  reason: string;
-  createdAt: Date;
+  chatroom_name: string;
+  chatroom_photo?: string;
+  post_id?: string;
+  created_at: Date;
+  updated_at: Date;
+  participants: User[];
+  messages?: ChatroomMessage[];
+  lastMessage?: ChatroomMessage;
 };
 
-export type PostReport = {
+export type ChatRoomParticipant = {
   id: string;
-  reporterId: string;
-  postId: string;
-  reason: string;
-  createdAt: Date;
+  chatroom_id: string;
+  user_id: string;
+  joined_at: Date;
+  user?: User;
 };
 
-export type MessageReport = {
+export type ChatroomMessage = {
   id: string;
-  reporterId: string;
-  messageId: string;
-  reason: string;
-  createdAt: Date;
+  chatroom_id: string;
+  sender_id: string;
+  content: string;
+  created_at: Date;
+  is_read: boolean;
+  is_edited: boolean;
+  reply_to_id?: string;
+  sender?: User;
 };
 
 export type MessageReaction = {
   id: string;
-  messageId: string;
-  userId: string;
+  message_id: string;
+  user_id: string;
   reaction: string;
-  createdAt: Date;
+  created_at: Date;
+};
+
+export type UserSettings = {
+  user_id: string;
+  mute_all_notifications: boolean;
+  private_chat_notifications: boolean;
+  chatroom_notifications: boolean;
+  dark_mode: boolean;
+  language: 'english' | 'vietnamese';
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type BlockedUser = {
+  blocker_id: string;
+  blocked_id: string;
+};
+
+export type MutedUser = {
+  muter_id: string;
+  muted_id: string;
+};
+
+export type SavedPost = {
+  user_id: string;
+  post_id: string;
+};
+
+export type HiddenPost = {
+  user_id: string;
+  post_id: string;
+};
+
+export type UserReport = {
+  id: string;
+  reporter_id: string;
+  reported_id: string;
+  reason: string;
+  created_at: Date;
+};
+
+export type PostReport = {
+  id: string;
+  reporter_id: string;
+  post_id: string;
+  reason: string;
+  created_at: Date;
+};
+
+export type MessageReport = {
+  id: string;
+  reporter_id: string;
+  message_id: string;
+  reason: string;
+  created_at: Date;
 };
 
 export type UserDevice = {
   id: string;
-  userId: string;
-  deviceToken: string;
-  createdAt: Date;
-  updatedAt: Date;
+  user_id: string;
+  device_token: string;
+  created_at: Date;
+  updated_at: Date;
 };

@@ -11,19 +11,19 @@ import { v4 as uuidv4 } from 'uuid';
 
 const EditProfilePage: React.FC = () => {
   const { currentUser, updateUserProfile } = useAuth();
-  const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
+  const [displayName, setDisplayName] = useState(currentUser?.display_name || '');
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profilePictureUrl || null);
+  const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profile_picture_url || null);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   
   useEffect(() => {
     if (currentUser) {
-      setDisplayName(currentUser.displayName || '');
+      setDisplayName(currentUser.display_name || '');
       setBio(currentUser.bio || '');
-      setProfileImage(currentUser.profilePictureUrl || null);
+      setProfileImage(currentUser.profile_picture_url || null);
     }
   }, [currentUser]);
   
@@ -51,7 +51,7 @@ const EditProfilePage: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      let profilePictureUrl = currentUser?.profilePictureUrl;
+      let profile_picture_url = currentUser?.profile_picture_url;
       
       // Upload new profile image if it exists
       if (profileImageFile && currentUser) {
@@ -73,14 +73,14 @@ const EditProfilePage: React.FC = () => {
           .from('profiles')
           .getPublicUrl(filePath);
         
-        profilePictureUrl = data.publicUrl;
+        profile_picture_url = data.publicUrl;
       }
       
       // Update user profile
       await updateUserProfile({
-        displayName,
+        display_name: displayName,
         bio,
-        profilePictureUrl
+        profile_picture_url
       });
       
       toast.success('Profile updated successfully');
@@ -121,7 +121,7 @@ const EditProfilePage: React.FC = () => {
                     <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-2xl font-medium text-gray-400">
-                      {currentUser?.displayName?.substring(0, 2) || 'U'}
+                      {currentUser?.display_name?.substring(0, 2) || 'U'}
                     </span>
                   )}
                 </div>

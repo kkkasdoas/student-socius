@@ -1,19 +1,20 @@
+
 import React from 'react';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Copy, Edit, Reply, Trash, Flag } from 'lucide-react';
-import { Message } from '@/types';
+import { Message, ChatroomMessage } from '@/types';
 import { differenceInHours } from 'date-fns';
 
 interface MessageContextMenuProps {
-  message: Message;
+  message: Message | ChatroomMessage;
   isCurrentUser: boolean;
   children: React.ReactNode;
-  onReply: (message: Message) => void;
-  onCopy: (message: Message) => void;
-  onEdit: (message: Message) => void;
-  onDelete: (message: Message) => void;
-  onReport: (message: Message) => void;
-  onReaction: (message: Message, reaction: string) => void;
+  onReply: (message: Message | ChatroomMessage) => void;
+  onCopy: (message: Message | ChatroomMessage) => void;
+  onEdit: (message: Message | ChatroomMessage) => void;
+  onDelete: (message: Message | ChatroomMessage) => void;
+  onReport: (message: Message | ChatroomMessage) => void;
+  onReaction: (message: Message | ChatroomMessage, reaction: string) => void;
 }
 
 const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
@@ -28,7 +29,7 @@ const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   onReaction
 }) => {
   // Check if message can be edited (own message, less than 24 hours old)
-  const canEdit = isCurrentUser && differenceInHours(new Date(), new Date(message.createdAt)) <= 24;
+  const canEdit = isCurrentUser && differenceInHours(new Date(), new Date(message.created_at)) <= 24;
   
   return (
     <ContextMenu>
