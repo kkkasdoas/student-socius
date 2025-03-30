@@ -1,0 +1,16 @@
+# Allow all web crawlers
+User-agent: *
+Allow: /
+
+# Disallow sensitive routes
+Disallow: /settings
+Disallow: /edit-profile
+Disallow: /conversations
+Disallow: /conversation/
+Disallow: /chatroom-info/
+
+# Set crawl delay
+Crawl-delay: 10
+
+# Sitemap location (once you have one)
+# Sitemap: https://yourdomain.com/sitemap.xml
