@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Feed: React.FC = () => {
   const { currentUser } = useAuth();
-  const university = currentUser?.university || 'TDTU University'; // Default for demo
+  const university = currentUser?.university; // Default for demo
   
   return (
     <Layout>
@@ -18,3 +18,4 @@ const Feed: React.FC = () => {
 };
 
 export default Feed;
+

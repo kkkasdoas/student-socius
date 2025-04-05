@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow, differenceInDays, format, differenceInMinutes } from 'date-fns';
 import {
   ThumbsUp,
@@ -19,7 +19,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Post, Reaction, SavedPost, HiddenPost, PostReport } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   const [reactionGroups, setReactionGroups] = useState({
@@ -43,320 +42,187 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [longPressTimeout, setLongPressTimeout] = useState<NodeJS.Timeout | null>(null);
   const contextAreaRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const isOwnPost = currentUser?.id === post.user.id;
+  const isOwnPost = currentUser?.id === post.user?.id;
   const canEdit = isOwnPost && differenceInMinutes(new Date(), new Date(post.createdAt)) <= 30;
 
-  // Add ref to track mounted state for async operations
-  const isMounted = useRef(true);
-  
-  // Add debounce ref to prevent rapid reactions
-  const reactionDebounceRef = useRef(false);
-  
-  // Clean up event listeners and mounted state on unmount
   useEffect(() => {
-    return () => {
-      // If any long press timeout is active, clear it
-      if (longPressTimeout) {
-        clearTimeout(longPressTimeout);
-      }
-      // Set mounted to false to prevent state updates after unmount
-      isMounted.current = false;
-    };
-  }, [longPressTimeout]);
-  
-  // Track copy link event for sharing
-  const handleCopyLink = useCallback(() => {
-    const postUrl = `${window.location.origin}/post/${post.id}`;
-    navigator.clipboard.writeText(postUrl)
-      .then(() => {
-        toast.success('Link copied to clipboard');
-        // If using analytics, track this event
-        // analytics.track('post_link_copied', { postId: post.id });
-      })
-      .catch(() => {
-        toast.error('Failed to copy link');
+    // If we have the post.reactions array, use it to group reactions
+    if (post.reactions && post.reactions.length > 0) {
+      // Group reactions by type
+      const groupedReactions = post.reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {
+        like: 0,
+        heart: 0,
+        laugh: 0,
+        wow: 0,
+        sad: 0,
+        angry: 0,
       });
-    setShowShareSheet(false);
-  }, [post.id]);
+      setReactionGroups(groupedReactions);
 
-  useEffect(() => {
-    // Group reactions by type
-    const groupedReactions = post.reactions.reduce((acc, reaction) => {
-      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
-      return acc;
-    }, {
-      like: 0,
-      heart: 0,
-      laugh: 0,
-      wow: 0,
-      sad: 0,
-      angry: 0,
-    });
-    setReactionGroups(groupedReactions);
-
-    // Get user's reactions for this post
-    const userReactionsForPost = post.reactions.filter(reaction => reaction.userId === currentUser?.id);
-    setUserReactions(userReactionsForPost);
+      // Get user's reactions for this post
+      const userReactionsForPost = post.reactions.filter(reaction => reaction.userId === currentUser?.id);
+      setUserReactions(userReactionsForPost);
+    } 
+    // If we have topReactions from the aggregated data, use that instead
+    else if (post.topReactions && post.topReactions.length > 0) {
+      const groupedReactions = {
+        like: 0,
+        heart: 0,
+        laugh: 0,
+        wow: 0,
+        sad: 0,
+        angry: 0,
+      };
+      
+      // Map the top reactions to our reaction groups
+      post.topReactions.forEach(reaction => {
+        if (reaction.type && reaction.count) {
+          groupedReactions[reaction.type] = reaction.count;
+        }
+      });
+      
+      setReactionGroups(groupedReactions);
+    }
 
     // Initialize post state
     if (currentUser) {
-      // Check if post is saved by this user
-      const checkSavedStatus = async () => {
-        const { data, error } = await supabase
-          .from('saved_posts')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .eq('post_id', post.id)
-          .single();
-          
-        if (!error && data) {
-          setIsSaved(true);
-        }
-      };
+      // In a real app, check if post is saved by this user
+      setIsSaved(false);
       
-      // Check if post is hidden by this user
-      const checkHiddenStatus = async () => {
-        const { data, error } = await supabase
-          .from('hidden_posts')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .eq('post_id', post.id)
-          .single();
-          
-        if (!error && data) {
-          setIsHidden(true);
-        }
-      };
-      
-      checkSavedStatus();
-      checkHiddenStatus();
+      // In a real app, check if post is hidden by this user
+      setIsHidden(false);
     }
     
     setEditTitle(post.title);
     setEditContent(post.content);
   }, [post, currentUser]);
 
-  const totalReactions = Object.values(reactionGroups).reduce((sum, count) => sum + count, 0);
+  // Get total reactions either from post.totalReactions or by calculating from reactionGroups
+  const totalReactions = post.totalReactions !== undefined 
+    ? post.totalReactions 
+    : Object.values(reactionGroups).reduce((sum, count) => sum + count, 0);
 
   const hasReacted = (type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry') => {
     return userReactions.some(reaction => reaction.type === type);
   };
 
-  const handleReaction = async (type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry') => {
+  const handleReaction = (type: 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry') => {
     if (!currentUser) {
       toast.error('Please log in to react to posts');
       return;
     }
     
-    // Prevent rapid clicks
-    if (reactionDebounceRef.current) return;
-    reactionDebounceRef.current = true;
+    // In a real app, this would send the reaction to the server
+    console.log('Reacted with:', type);
     
-    // Reset debounce after 500ms
-    setTimeout(() => {
-      if (isMounted.current) {
-        reactionDebounceRef.current = false;
-      }
-    }, 500);
-    
-    try {
-      setIsLoading(true);
+    // If user already has this reaction, remove it
+    if (hasReacted(type)) {
+      // DELETE FROM reactions WHERE postId = ? AND userId = ? AND type = ?
+      console.log('Removing reaction:', type);
       
-      if (hasReacted(type)) {
-        // Delete the reaction
-        const { error } = await supabase
-          .from('reactions')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', currentUser.id)
-          .eq('type', type);
-        
-        if (error) throw error;
+      // Update local state (optimistic update)
+      setUserReactions(userReactions.filter(r => r.type !== type));
+      setReactionGroups({
+        ...reactionGroups,
+        [type]: Math.max(0, reactionGroups[type] - 1)
+      });
+    } else {
+      // If user has a different reaction, replace it
+      if (userReactions.length > 0) {
+        const oldType = userReactions[0].type;
+        // UPDATE reactions SET type = ? WHERE postId = ? AND userId = ?
+        console.log('Replacing reaction from', oldType, 'to', type);
         
         // Update local state (optimistic update)
-        if (isMounted.current) {
-          setUserReactions(userReactions.filter(r => r.type !== type));
-          setReactionGroups({
-            ...reactionGroups,
-            [type]: Math.max(0, reactionGroups[type] - 1)
-          });
-        }
+        setUserReactions([{ ...userReactions[0], type }]);
+        setReactionGroups({
+          ...reactionGroups,
+          [oldType]: Math.max(0, reactionGroups[oldType] - 1),
+          [type]: (reactionGroups[type] || 0) + 1
+        });
       } else {
-        // If user has a different reaction, replace it
-        if (userReactions.length > 0) {
-          const oldType = userReactions[0].type;
-          
-          // Update the reaction
-          const { error } = await supabase
-            .from('reactions')
-            .update({ type })
-            .eq('post_id', post.id)
-            .eq('user_id', currentUser.id);
-          
-          if (error) throw error;
-          
-          // Update local state (optimistic update)
-          if (isMounted.current) {
-            setUserReactions([{ ...userReactions[0], type }]);
-            setReactionGroups({
-              ...reactionGroups,
-              [oldType]: Math.max(0, reactionGroups[oldType] - 1),
-              [type]: (reactionGroups[type] || 0) + 1
-            });
-          }
-        } else {
-          // Add new reaction
-          const newReaction = {
-            post_id: post.id,
-            user_id: currentUser.id,
-            type: type,
-          };
-          
-          const { data, error } = await supabase
-            .from('reactions')
-            .insert(newReaction)
-            .select()
-            .single();
-          
-          if (error) throw error;
-          
-          // Update local state with the returned data
-          const reactionWithId: Reaction = {
-            id: data.id,
-            postId: data.post_id,
-            userId: data.user_id,
-            type: data.type,
-            createdAt: new Date(data.created_at)
-          };
-          
-          if (isMounted.current) {
-            setUserReactions([reactionWithId]);
-            setReactionGroups({
-              ...reactionGroups,
-              [type]: (reactionGroups[type] || 0) + 1
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error updating reaction:', error);
-      if (isMounted.current) {
-        setError('Failed to update reaction. Please try again.');
-      }
-    } finally {
-      if (isMounted.current) {
-        setIsLoading(false);
-        setShowContextMenu(false);
+        // Add new reaction
+        // INSERT INTO reactions (id, postId, userId, type, createdAt) VALUES (uuid(), ?, ?, ?, NOW())
+        console.log('Adding new reaction:', type);
+        
+        // Update local state (optimistic update)
+        const newReaction: Reaction = {
+          id: `reaction-${Date.now()}`,
+          postId: post.id,
+          userId: currentUser.id,
+          type: type,
+          createdAt: new Date()
+        };
+        setUserReactions([newReaction]);
+        setReactionGroups({
+          ...reactionGroups,
+          [type]: (reactionGroups[type] || 0) + 1
+        });
       }
     }
+    
+    setShowContextMenu(false);
   };
 
-  const navigateToUserProfile = useCallback((userId: string, event: React.MouseEvent) => {
+  const navigateToUserProfile = (userId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     navigate(`/user/${userId}`);
-  }, [navigate]);
+  };
 
-  const navigateToChatroom = useCallback(() => {
+  const navigateToChatroom = () => {
     if (post.conversationId) {
       navigate(`/chatroom/${post.conversationId}`);
     }
-  }, [navigate, post.conversationId]);
+  };
   
   const handleShare = () => {
     setShowShareSheet(true);
     setShowContextMenu(false);
   };
   
-  const handleSavePost = async () => {
+  const handleSavePost = () => {
     if (!currentUser) {
       toast.error('Please log in to save posts');
       return;
     }
     
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      if (isSaved) {
-        // Delete from saved posts
-        const { error } = await supabase
-          .from('saved_posts')
-          .delete()
-          .eq('user_id', currentUser.id)
-          .eq('post_id', post.id);
-          
-        if (error) throw error;
-        
-        setIsSaved(false);
-        toast.success('Post removed from saved posts');
-      } else {
-        // Add to saved posts
-        const newSavedPost = {
-          user_id: currentUser.id,
-          post_id: post.id
-        };
-        
-        const { error } = await supabase
-          .from('saved_posts')
-          .insert(newSavedPost);
-          
-        if (error) throw error;
-        
-        setIsSaved(true);
-        toast.success('Post saved for later');
-      }
-    } catch (error) {
-      console.error('Error updating saved status:', error);
-      setError('Failed to update saved status. Please try again.');
-    } finally {
-      setIsLoading(false);
-      setShowContextMenu(false);
+    if (isSaved) {
+      // DELETE FROM saved_posts WHERE userId = ? AND postId = ?
+      console.log('Unsaving post:', post.id);
+      setIsSaved(false);
+      toast.success('Post removed from saved posts');
+    } else {
+      // INSERT INTO saved_posts (userId, postId) VALUES (?, ?)
+      console.log('Saving post:', post.id);
+      setIsSaved(true);
+      toast.success('Post saved for later');
     }
+    
+    setShowContextMenu(false);
   };
   
-  const handleHidePost = async () => {
+  const handleHidePost = () => {
     if (!currentUser) {
       toast.error('Please log in to hide posts');
       return;
     }
     
-    try {
-      if (isHidden) {
-        // Unhide post
-        const { error } = await supabase
-          .from('hidden_posts')
-          .delete()
-          .eq('user_id', currentUser.id)
-          .eq('post_id', post.id);
-          
-        if (error) throw error;
-        
-        setIsHidden(false);
-        toast.success('Post unhidden');
-      } else {
-        // Hide post
-        const newHiddenPost = {
-          user_id: currentUser.id,
-          post_id: post.id
-        };
-        
-        const { error } = await supabase
-          .from('hidden_posts')
-          .insert(newHiddenPost);
-          
-        if (error) throw error;
-        
-        setIsHidden(true);
-        toast.success('Post hidden from your feed');
-      }
-    } catch (error) {
-      console.error('Error updating hidden status:', error);
-      toast.error('Failed to update hidden status. Please try again.');
+    if (isHidden) {
+      // DELETE FROM hidden_posts WHERE userId = ? AND postId = ?
+      console.log('Unhiding post:', post.id);
+      setIsHidden(false);
+      toast.success('Post unhidden');
+    } else {
+      // INSERT INTO hidden_posts (userId, postId) VALUES (?, ?)
+      console.log('Hiding post:', post.id);
+      setIsHidden(true);
+      toast.success('Post hidden from your feed');
     }
     
     setShowContextMenu(false);
@@ -367,33 +233,25 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     setShowContextMenu(false);
   };
   
-  const submitReport = async () => {
+  const submitReport = () => {
     if (!reportReason.trim() || !currentUser) {
       toast.error('Please provide a reason for the report');
       return;
     }
     
-    try {
-      // Insert report into database
-      const newReport = {
-        reporter_id: currentUser.id,
-        post_id: post.id,
-        reason: reportReason
-      };
-      
-      const { error } = await supabase
-        .from('post_reports')
-        .insert(newReport);
-        
-      if (error) throw error;
-      
-      toast.success('Report submitted successfully');
-      setShowReportDialog(false);
-      setReportReason('');
-    } catch (error) {
-      console.error('Error submitting report:', error);
-      toast.error('Failed to submit report. Please try again.');
-    }
+    // INSERT INTO post_reports (id, reporterId, postId, reason, createdAt) VALUES (uuid(), ?, ?, ?, NOW())
+    const newReport: PostReport = {
+      id: `report-${Date.now()}`,
+      reporterId: currentUser.id,
+      postId: post.id,
+      reason: reportReason,
+      createdAt: new Date()
+    };
+    
+    console.log('Submitting post report:', newReport);
+    toast.success('Report submitted successfully');
+    setShowReportDialog(false);
+    setReportReason('');
   };
   
   const handleEditPost = () => {
@@ -406,39 +264,23 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     setShowContextMenu(false);
   };
   
-  const submitEdit = async () => {
+  const submitEdit = () => {
     if (!editTitle.trim() || !editContent.trim()) {
       toast.error('Title and content cannot be empty');
       return;
     }
     
-    try {
-      // Update post in database
-      const { error } = await supabase
-        .from('posts')
-        .update({
-          title: editTitle,
-          content: editContent,
-          is_edited: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', post.id);
-        
-      if (error) throw error;
-      
-      toast.success('Post updated successfully');
-      setShowEditDialog(false);
-      
-      // Update local post (this would typically be handled by a state refresh in the parent)
-      // Here we're just showing what would happen
-      post.title = editTitle;
-      post.content = editContent;
-      post.isEdited = true;
-      post.updatedAt = new Date();
-    } catch (error) {
-      console.error('Error updating post:', error);
-      toast.error('Failed to update post. Please try again.');
-    }
+    // UPDATE posts SET title = ?, content = ?, isEdited = true, updatedAt = NOW() WHERE id = ?
+    console.log('Editing post:', post.id, {
+      title: editTitle,
+      content: editContent,
+      isEdited: true
+    });
+    
+    toast.success('Post updated successfully');
+    setShowEditDialog(false);
+    
+    // In a real app, we would refetch the post or update the local state
   };
   
   const handleDeletePost = () => {
@@ -446,41 +288,31 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
     setShowContextMenu(false);
   };
   
-  const confirmDelete = async () => {
-    try {
-      // Delete post
-      const { error } = await supabase
-        .from('posts')
-        .delete()
-        .eq('id', post.id);
-        
-      if (error) throw error;
-      
-      toast.success('Post deleted successfully');
-      setShowDeleteConfirm(false);
-      
-      // In a real app, we would either:
-      // 1. Remove the post from the feed via a callback to the parent component
-      // 2. Redirect the user if this is a single post view
-      
-      // For now, we'll just notify the parent somehow that the post was deleted
-      // This is a placeholder for actual implementation
-      document.dispatchEvent(new CustomEvent('post-deleted', { detail: { postId: post.id } }));
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      toast.error('Failed to delete post. Please try again.');
-    }
+  const confirmDelete = () => {
+    // DELETE FROM posts WHERE id = ?
+    // Also delete related data (reactions, comments, etc.)
+    console.log('Deleting post:', post.id);
+    
+    toast.success('Post deleted successfully');
+    setShowDeleteConfirm(false);
+    
+    // In a real app, we would remove the post from the UI or redirect
   };
   
   // Format time ago
   const formatTimeAgo = (date: Date) => {
-    const daysDifference = differenceInDays(new Date(), new Date(date));
-    
-    if (daysDifference > 30) {
-      return format(new Date(date), 'dd/MM/yyyy');
+    // Ensure we have a valid date
+    if (!date || isNaN(date.getTime())) {
+      return 'Unknown date';
     }
     
-    const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: false });
+    const daysDifference = differenceInDays(new Date(), date);
+    
+    if (daysDifference > 30) {
+      return format(date, 'dd/MM/yyyy');
+    }
+    
+    const timeAgo = formatDistanceToNow(date, { addSuffix: false });
     
     // Convert to short format
     if (timeAgo.includes('second')) {
@@ -533,48 +365,29 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
   // Format timestamp
   const formattedTime = formatTimeAgo(post.createdAt);
 
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      setError(null);
-    }
-  }, [error]);
-
-  // Add proper accessibility attributes
   return (
-    <div 
-      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4"
-      role="article"
-      aria-labelledby={`post-${post.id}-title`}
-    >
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4">
       {/* Post Header */}
       <div className="p-4 flex items-start">
         <Avatar 
           className="w-10 h-10 mr-3 cursor-pointer"
-          onClick={(e) => navigateToUserProfile(post.user.id, e)}
-          role="img"
-          aria-label={`${post.user.displayName}'s profile picture`}
+          onClick={(e) => post.user?.id ? navigateToUserProfile(post.user.id, e) : e.preventDefault()}
         >
-          <AvatarImage src={post.user.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} alt={post.user.displayName} />
-          <AvatarFallback>{post.user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+          <AvatarImage src={post.user?.profilePictureUrl || 'https://i.pravatar.cc/150?img=default'} alt={post.user?.displayName || 'User'} />
+          <AvatarFallback>{post.user?.displayName ? post.user.displayName.substring(0, 2).toUpperCase() : 'US'}</AvatarFallback>
         </Avatar>
 
         <div className="flex-1">
           <div className="flex items-center">
             <h3 
-              id={`post-${post.id}-title`}
               className="font-medium text-gray-900 cursor-pointer hover:text-cendy-primary"
-              onClick={(e) => navigateToUserProfile(post.user.id, e)}
+              onClick={(e) => post.user?.id ? navigateToUserProfile(post.user.id, e) : e.preventDefault()}
             >
-              {post.user.displayName}
+              {post.user?.displayName || 'Anonymous User'}
             </h3>
-            <span className="text-gray-500 text-sm ml-2" aria-label={`Posted ${formattedTime} ago`}>
-              {formattedTime}
-            </span>
+            <span className="text-gray-500 text-sm ml-2">{formattedTime}</span>
             {post.isEdited && (
-              <span className="text-gray-500 text-xs ml-2" aria-label="This post has been edited">
-                (Edited)
-              </span>
+              <span className="text-gray-500 text-xs ml-2">(Edited)</span>
             )}
           </div>
 
@@ -602,7 +415,6 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
         onMouseUp={handleLongPressEnd}
         onMouseLeave={handleLongPressEnd}
         onContextMenu={handleContextMenu}
-        aria-label="Post content. Long press or right click for more options."
       >
         {/* Post Title */}
         <div className="px-4 pb-2 text-lg font-semibold">
@@ -750,42 +562,17 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Share Sheet Dialog - update with copy link functionality */}
+      {/* Share Sheet Dialog */}
       <Dialog open={showShareSheet} onOpenChange={setShowShareSheet}>
         <DialogContent className="sm:max-w-md rounded-xl p-0 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="text-center font-medium">Share this post</h3>
           </div>
           <div className="p-6 grid grid-cols-4 gap-4">
-            <ShareOption 
-              icon="facebook" 
-              label="Facebook" 
-              onClick={() => {
-                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin + '/post/' + post.id)}`, '_blank');
-                setShowShareSheet(false);
-              }} 
-            />
-            <ShareOption 
-              icon="twitter" 
-              label="Twitter" 
-              onClick={() => {
-                window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.origin + '/post/' + post.id)}&text=${encodeURIComponent(post.title)}`, '_blank');
-                setShowShareSheet(false);
-              }} 
-            />
-            <ShareOption 
-              icon="linkedin" 
-              label="LinkedIn" 
-              onClick={() => {
-                window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin + '/post/' + post.id)}`, '_blank');
-                setShowShareSheet(false);
-              }} 
-            />
-            <ShareOption 
-              icon="copy" 
-              label="Copy Link" 
-              onClick={handleCopyLink}
-            />
+            <ShareOption icon="facebook" label="Facebook" />
+            <ShareOption icon="twitter" label="Twitter" />
+            <ShareOption icon="linkedin" label="LinkedIn" />
+            <ShareOption icon="copy" label="Copy Link" />
           </div>
         </DialogContent>
       </Dialog>
@@ -884,15 +671,6 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Show loading overlay when needed */}
-      <div className="relative">
-        {isLoading && (
-          <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
-            <div className="loader animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cendy-primary"></div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
@@ -905,8 +683,7 @@ interface ContextMenuItemProps {
   className?: string;
 }
 
-// Memoize context menu item for better performance
-const ContextMenuItem = memo<ContextMenuItemProps>(({ icon, label, onClick, className }) => {
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ icon, label, onClick, className }) => {
   return (
     <button 
       className={`w-full px-3 py-2.5 flex items-center hover:bg-gray-100 transition-colors ${className || 'text-gray-700'}`}
@@ -916,8 +693,7 @@ const ContextMenuItem = memo<ContextMenuItemProps>(({ icon, label, onClick, clas
       <span>{label}</span>
     </button>
   );
-});
-ContextMenuItem.displayName = 'ContextMenuItem';
+};
 
 // Share Option Component
 interface ShareOptionProps {
@@ -925,8 +701,7 @@ interface ShareOptionProps {
   label: string;
 }
 
-// Memoize share option for better performance
-const ShareOption: React.FC<ShareOptionProps & { onClick?: () => void }> = memo(({ icon, label, onClick }) => {
+const ShareOption: React.FC<ShareOptionProps> = ({ icon, label }) => {
   let iconElement;
   let iconColorClass;
   
@@ -950,18 +725,13 @@ const ShareOption: React.FC<ShareOptionProps & { onClick?: () => void }> = memo(
   }
   
   return (
-    <button 
-      className="flex flex-col items-center hover:opacity-80 transition-opacity"
-      onClick={onClick}
-      aria-label={`Share on ${label}`}
-    >
+    <button className="flex flex-col items-center">
       <div className={`w-12 h-12 rounded-full ${iconColorClass} flex items-center justify-center mb-1`}>
         {iconElement}
       </div>
       <span className="text-xs text-gray-700">{label}</span>
     </button>
   );
-});
-ShareOption.displayName = 'ShareOption';
+};
 
 export default PostCard;

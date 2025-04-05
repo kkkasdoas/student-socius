@@ -9,141 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      posts: {
+      blocked_users: {
         Row: {
-          id: string
-          user_id: string
-          title: string
-          content: string
-          university: string
-          conversation_id?: string
-          image_url?: string
-          channel_type: string
-          category?: string
-          is_edited: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          title: string
-          content: string
-          university: string
-          conversation_id?: string
-          image_url?: string
-          channel_type: string
-          category?: string
-          is_edited?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          title?: string
-          content?: string
-          university?: string
-          conversation_id?: string
-          image_url?: string
-          channel_type?: string
-          category?: string
-          is_edited?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      profiles: {
-        Row: {
-          id: string
-          display_name: string
-          bio?: string
-          university?: string
-          verification_status: string
-          profile_picture_url?: string
-          auth_provider: string
-          login_email?: string
-          login_name?: string
-          block_status: boolean
-          is_deleted: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          display_name: string
-          bio?: string
-          university?: string
-          verification_status: string
-          profile_picture_url?: string
-          auth_provider: string
-          login_email?: string
-          login_name?: string
-          block_status?: boolean
-          is_deleted?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          display_name?: string
-          bio?: string
-          university?: string
-          verification_status?: string
-          profile_picture_url?: string
-          auth_provider?: string
-          login_email?: string
-          login_name?: string
-          block_status?: boolean
-          is_deleted?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      reactions: {
-        Row: {
-          id: string
-          post_id: string
-          user_id: string
-          type: string
+          blocker_id: string
+          blocked_id: string
           created_at: string
         }
         Insert: {
-          id?: string
-          post_id: string
-          user_id: string
-          type: string
+          blocker_id: string
+          blocked_id: string
           created_at?: string
         }
         Update: {
-          id?: string
-          post_id?: string
-          user_id?: string
-          type?: string
+          blocker_id?: string
+          blocked_id?: string
           created_at?: string
         }
       }
-      comments: {
+      conversation_participants: {
         Row: {
-          id: string
-          post_id: string
+          conversation_id: string
           user_id: string
-          content: string
           created_at: string
+          role: string
         }
         Insert: {
-          id?: string
-          post_id: string
+          conversation_id: string
           user_id: string
-          content: string
           created_at?: string
+          role?: string
         }
         Update: {
-          id?: string
-          post_id?: string
+          conversation_id?: string
           user_id?: string
-          content?: string
           created_at?: string
+          role?: string
         }
       }
       conversations: {
@@ -184,6 +84,69 @@ export type Database = {
           updated_at?: string
         }
       }
+      hidden_posts: {
+        Row: {
+          user_id: string
+          post_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          post_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          post_id?: string
+          created_at?: string
+        }
+      }
+      message_reactions: {
+        Row: {
+          id: string
+          message_id: string
+          user_id: string
+          reaction: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          user_id: string
+          reaction: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          user_id?: string
+          reaction?: string
+          created_at?: string
+        }
+      }
+      message_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          message_id: string
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          message_id: string
+          reason: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reporter_id?: string
+          message_id?: string
+          reason?: string
+          created_at?: string
+        }
+      }
       messages: {
         Row: {
           id: string
@@ -214,6 +177,291 @@ export type Database = {
           is_read?: boolean
           is_edited?: boolean
           reply_to_id?: string
+        }
+      }
+      muted_users: {
+        Row: {
+          muter_id: string
+          muted_id: string
+          created_at: string
+        }
+        Insert: {
+          muter_id: string
+          muted_id: string
+          created_at?: string
+        }
+        Update: {
+          muter_id?: string
+          muted_id?: string
+          created_at?: string
+        }
+      }
+      post_authors: {
+        Insert: {
+          post_id?: string
+          user_id?: string
+          display_name?: string
+          profile_picture_url?: string
+          university?: string
+        }
+        Update: {
+          post_id?: string
+          user_id?: string
+          display_name?: string
+          profile_picture_url?: string
+          university?: string
+        }
+      }
+      post_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          post_id: string
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          post_id: string
+          reason: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reporter_id?: string
+          post_id?: string
+          reason?: string
+          created_at?: string
+        }
+      }
+      posts: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          content: string
+          university?: string
+          image_url?: string
+          channel_type: string
+          category?: string
+          is_edited: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          content: string
+          university?: string
+          image_url?: string
+          channel_type: string
+          category?: string
+          is_edited?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          content?: string
+          university?: string
+          image_url?: string
+          channel_type?: string
+          category?: string
+          is_edited?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      profiles: {
+        Row: {
+          id: string
+          display_name: string
+          bio?: string
+          university?: string
+          verification_status?: string
+          profile_picture_url?: string
+          auth_provider?: string
+          login_email?: string
+          login_name?: string
+          last_login?: string
+          block_status?: boolean
+          is_deleted?: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name: string
+          bio?: string
+          university?: string
+          verification_status?: string
+          profile_picture_url?: string
+          auth_provider?: string
+          login_email?: string
+          login_name?: string
+          last_login?: string
+          block_status?: boolean
+          is_deleted?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          display_name?: string
+          bio?: string
+          university?: string
+          verification_status?: string
+          profile_picture_url?: string
+          auth_provider?: string
+          login_email?: string
+          login_name?: string
+          last_login?: string
+          block_status?: boolean
+          is_deleted?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      reactions: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string
+          type: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id: string
+          type: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string
+          type?: string
+          created_at?: string
+        }
+      }
+      saved_posts: {
+        Row: {
+          user_id: string
+          post_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          post_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          post_id?: string
+          created_at?: string
+        }
+      }
+      user_devices: {
+        Row: {
+          id: string
+          user_id: string
+          device_token: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          device_token: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          device_token?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      user_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          reported_id: string
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          reported_id: string
+          reason: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reporter_id?: string
+          reported_id?: string
+          reason?: string
+          created_at?: string
+        }
+      }
+      user_settings: {
+        Row: {
+          user_id: string
+          mute_all_notifications: boolean
+          private_chat_notifications: boolean
+          chatroom_notifications: boolean
+          dark_mode: boolean
+          language: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          mute_all_notifications?: boolean
+          private_chat_notifications?: boolean
+          chatroom_notifications?: boolean
+          dark_mode?: boolean
+          language?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          mute_all_notifications?: boolean
+          private_chat_notifications?: boolean
+          chatroom_notifications?: boolean
+          dark_mode?: boolean
+          language?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      verified_domains: {
+        Row: {
+          id: number
+          domain: string
+          created_at?: string
+          university?: string
+        }
+        Insert: {
+          id?: number
+          domain: string
+          created_at?: string
+          university?: string
+        }
+        Update: {
+          id?: number
+          domain?: string
+          created_at?: string
+          university?: string
         }
       }
     }

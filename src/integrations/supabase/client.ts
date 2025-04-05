@@ -8,4 +8,25 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJh
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
+
+// Set up error logging for auth state changes
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log("Auth state changed:", event, session ? "Session exists" : "No session");
+  
+  if (event === 'SIGNED_IN') {
+    console.log("User signed in successfully");
+  } else if (event === 'SIGNED_OUT') {
+    console.log("User signed out");
+  } else if (event === 'TOKEN_REFRESHED') {
+    console.log("Auth token refreshed");
+  } else if (event === 'USER_UPDATED') {
+    console.log("User updated");
+  }
+});

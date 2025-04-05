@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChevronDown, ChevronUp, Mail, Apple } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, Apple, AlertCircle } from 'lucide-react';
 
 // Get allowed email domains from environment variables
 const ALLOWED_EMAIL_DOMAINS = import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS?.split(',') || ['student.tdtu.edu.vn'];
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const LoginScreen: React.FC = () => {
   const { loginWithGoogle, loginWithMicrosoft, loginWithApple, isLoading } = useAuth();
-  const [infoExpanded, setInfoExpanded] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(true); // Set to true by default to show verification information
   const [allowedDomains, setAllowedDomains] = useState<string[]>(ALLOWED_EMAIL_DOMAINS);
   
   // Format domains for display
@@ -20,9 +21,15 @@ const LoginScreen: React.FC = () => {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-cendy-primary tracking-tight mb-2">Cendy</h1>
           <h2 className="text-xl text-gray-700 mb-4">The College Connection App</h2>
-          <p className="text-sm text-gray-500 mb-6 max-w-sm">
+          <p className="text-sm text-gray-500 mb-2 max-w-sm">
             Connect with verified college students in a safe and private environment
           </p>
+          
+          {/* Verification Notice */}
+          <div className="mb-4 flex items-center justify-center gap-2 bg-yellow-50 p-2 rounded-lg border border-yellow-200">
+            <AlertCircle className="w-4 h-4 text-yellow-500" />
+            <p className="text-xs text-yellow-700 font-medium">Sign in with a verified student email</p>
+          </div>
         </div>
         
         {/* Login Options */}
@@ -32,6 +39,8 @@ const LoginScreen: React.FC = () => {
             onClick={loginWithGoogle}
             disabled={isLoading}
             className="w-full flex items-center justify-center py-3 px-6 bg-white border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-all"
+            aria-label="Sign in with Google"
+            data-client-id={GOOGLE_CLIENT_ID}
           >
             <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
               <path
@@ -100,7 +109,10 @@ const LoginScreen: React.FC = () => {
           {infoExpanded && (
             <div className="p-4 pt-0 bg-gray-50 text-sm text-gray-600 space-y-2 animate-fade-in">
               <p>
-                <strong>Google & Microsoft logins:</strong> Must use a student email ({formattedDomains}) for full access.
+                <strong>Domain verification required:</strong> Your login email must be from a verified institution ({formattedDomains}).
+              </p>
+              <p>
+                <strong>Google & Microsoft logins:</strong> Must use a student email for full access.
               </p>
               <p>
                 <strong>Apple login:</strong> Creates an unverified account with limited access.

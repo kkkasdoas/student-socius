@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
+import { uploadProfilePicture } from '@/utils/storage';
 
 const EditProfilePage: React.FC = () => {
   const { currentUser, updateUserProfile } = useAuth();
@@ -55,25 +54,14 @@ const EditProfilePage: React.FC = () => {
       
       // Upload new profile image if it exists
       if (profileImageFile && currentUser) {
-        const fileExt = profileImageFile.name.split('.').pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const filePath = `profile-pictures/${currentUser.id}/${fileName}`;
+        // Use our utility function to upload the profile picture
+        const uploadedUrl = await uploadProfilePicture(profileImageFile, currentUser.id);
         
-        // Upload the file to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('profiles')
-          .upload(filePath, profileImageFile);
-        
-        if (uploadError) {
-          throw uploadError;
+        if (!uploadedUrl) {
+          throw new Error('Failed to upload profile picture');
         }
         
-        // Get the public URL
-        const { data } = supabase.storage
-          .from('profiles')
-          .getPublicUrl(filePath);
-        
-        profilePictureUrl = data.publicUrl;
+        profilePictureUrl = uploadedUrl;
       }
       
       // Update user profile

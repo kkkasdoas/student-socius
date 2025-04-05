@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Supabase Storage Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Supabase Storage Test</h1>
+  <div id="output"></div>
+  
+  <script>
+    // Replace with your Supabase URL and anon key
+    const supabaseUrl = 'https://qvjuxusvepjufcxdxswd.supabase.co';
+    const supabaseKey = 'YOUR_SUPABASE_ANON_KEY'; // Replace this with your actual key
+    
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    
+    async function testBuckets() {
+      const output = document.getElementById('output');
+      
+      try {
+        // List all buckets
+        const { data: buckets, error: bucketError } = await supabase
+          .storage
+          .listBuckets();
+        
+        if (bucketError) {
+          output.innerHTML += `<p>Error listing buckets: ${JSON.stringify(bucketError)}</p>`;
+          return;
+        }
+        
+        output.innerHTML += `<p>Found ${buckets.length} buckets:</p>`;
+        output.innerHTML += `<ul>${buckets.map(b => `<li>${b.name}</li>`).join('')}</ul>`;
+        
+        // Check if post-images exists
+        const postImagesBucket = buckets.find(b => b.name === 'post-images');
+        if (postImagesBucket) {
+          output.innerHTML += `<p>✅ post-images bucket exists</p>`;
+        } else {
+          output.innerHTML += `<p>❌ post-images bucket does NOT exist</p>`;
+          
+          // Try to create the bucket
+          output.innerHTML += `<p>Attempting to create post-images bucket...</p>`;
+          const { data: newBucket, error: createError } = await supabase
+            .storage
+            .createBucket('post-images', { public: true });
+          
+          if (createError) {
+            output.innerHTML += `<p>Error creating bucket: ${JSON.stringify(createError)}</p>`;
+          } else {
+            output.innerHTML += `<p>✅ Successfully created post-images bucket</p>`;
+          }
+        }
+      } catch (err) {
+        output.innerHTML += `<p>Unexpected error: ${err.message}</p>`;
+      }
+    }
+    
+    // Run the test when page loads
+    window.onload = testBuckets;
+  </script>
+</body>
+</html> 

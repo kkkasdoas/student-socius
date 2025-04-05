@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,9 +35,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ onNewChat }) => {
           .select('conversation_id')
           .eq('user_id', currentUser.id);
           
-        if (participantError) {
-          throw participantError;
-        }
+        if (participantError) throw participantError;
         
         if (!participantData || participantData.length === 0) {
           setConversations([]);
@@ -48,7 +45,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ onNewChat }) => {
         
         const conversationIds = participantData.map(p => p.conversation_id);
         
-        // Fetch full conversation data for those conversations
+        // Fetch full conversation data
         const { data: conversationsData, error: conversationsError } = await supabase
           .from('conversations')
           .select(`
@@ -69,9 +66,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ onNewChat }) => {
           .in('id', conversationIds)
           .order('last_message_timestamp', { ascending: false });
           
-        if (conversationsError) {
-          throw conversationsError;
-        }
+        if (conversationsError) throw conversationsError;
         
         if (conversationsData) {
           // Transform to application type
@@ -164,31 +159,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ onNewChat }) => {
     setFilteredConversations(filtered);
   }, [searchQuery, conversations, otherParticipants]);
   
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-  
   const handleConversationClick = (conversation: Conversation) => {
     navigate(`/conversation/${conversation.id}`);
-  };
-  
-  const getLastMessagePreview = (conversation: Conversation) => {
-    if (!conversation.lastMessageContent) {
-      return "No messages yet";
-    }
-    
-    const isFromCurrentUser = conversation.lastMessageSenderId === currentUser?.id;
-    const prefix = isFromCurrentUser ? 'You: ' : '';
-    
-    return `${prefix}${conversation.lastMessageContent}`;
-  };
-  
-  const getLastMessageTime = (conversation: Conversation) => {
-    if (!conversation.lastMessageTimestamp) {
-      return formatDistanceToNow(conversation.createdAt, { addSuffix: true });
-    }
-    
-    return formatDistanceToNow(conversation.lastMessageTimestamp, { addSuffix: true });
   };
   
   if (isLoading) {
@@ -198,104 +170,87 @@ const ConversationList: React.FC<ConversationListProps> = ({ onNewChat }) => {
       </div>
     );
   }
-  
+
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 flex justify-between items-center border-b">
-        <h1 className="text-xl font-bold">Messages</h1>
-        {onNewChat && (
-          <Button 
-            onClick={onNewChat}
-            variant="ghost" 
-            size="icon"
-            aria-label="Start new chat"
-          >
-            <PlusCircle className="h-5 w-5" />
-          </Button>
-        )}
-      </div>
-      
-      <div className="p-4">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Conversations</h2>
+          {onNewChat && (
+            <button 
+              onClick={onNewChat}
+              className="p-2 text-cendy-primary hover:bg-gray-100 rounded-full transition"
+              aria-label="Start new conversation"
+            >
+              <PlusCircle className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+        
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
           <Input
+            type="text"
             placeholder="Search conversations..."
             value={searchQuery}
-            onChange={handleSearchChange}
-            className="pl-10"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-gray-100 border-none"
           />
         </div>
       </div>
       
       <div className="flex-1 overflow-y-auto">
         {filteredConversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <p>No conversations found</p>
-            {searchQuery ? (
-              <Button 
-                variant="link" 
-                onClick={() => setSearchQuery('')}
-                className="mt-2"
-              >
-                Clear search
-              </Button>
-            ) : onNewChat ? (
-              <Button 
-                variant="link" 
+          <div className="h-full flex flex-col items-center justify-center text-gray-500 p-4">
+            <p className="text-center mb-2">No conversations yet</p>
+            {onNewChat && (
+              <button
                 onClick={onNewChat}
-                className="mt-2"
+                className="px-4 py-2 bg-cendy-primary text-white rounded-lg hover:bg-cendy-primary/90 transition"
               >
-                Start a new chat
-              </Button>
-            ) : null}
+                Start a new conversation
+              </button>
+            )}
           </div>
         ) : (
-          <div className="divide-y">
-            {filteredConversations.map(conversation => {
-              const otherUser = conversation.type === 'private' ? otherParticipants[conversation.id] : null;
-              
+          <div className="divide-y divide-gray-100">
+            {filteredConversations.map((conversation) => {
+              const isPrivate = conversation.type === 'private';
+              const otherUser = isPrivate ? otherParticipants[conversation.id] : null;
+              const displayName = isPrivate 
+                ? otherUser?.displayName || 'Unknown User'
+                : conversation.chatroomName || 'Unnamed Chatroom';
+              const avatarSrc = isPrivate
+                ? otherUser?.profilePictureUrl
+                : conversation.photo;
+                
               return (
                 <div
                   key={conversation.id}
-                  className="p-3 hover:bg-gray-50 cursor-pointer"
+                  className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => handleConversationClick(conversation)}
                 >
                   <div className="flex items-center">
                     <Avatar className="h-12 w-12 mr-3">
-                      {conversation.type === 'private' ? (
-                        <>
-                          <AvatarImage 
-                            src={otherUser?.profilePictureUrl || "https://i.pravatar.cc/150?img=default"} 
-                            alt={otherUser?.displayName} 
-                          />
-                          <AvatarFallback>{otherUser?.displayName.substring(0, 2).toUpperCase() || "UN"}</AvatarFallback>
-                        </>
-                      ) : (
-                        <>
-                          <AvatarImage 
-                            src={conversation.photo || "https://i.pravatar.cc/150?img=group"} 
-                            alt={conversation.chatroomName} 
-                          />
-                          <AvatarFallback>{conversation.chatroomName?.substring(0, 2).toUpperCase() || "CH"}</AvatarFallback>
-                        </>
-                      )}
+                      <AvatarImage src={avatarSrc} />
+                      <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between">
-                        <h3 className="font-medium truncate">
-                          {conversation.type === 'private' 
-                            ? otherUser?.displayName || "User" 
-                            : conversation.chatroomName || "Chat Room"
-                          }
-                        </h3>
-                        <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                          {getLastMessageTime(conversation)}
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-medium text-gray-900 truncate">{displayName}</h3>
+                        <span className="text-xs text-gray-500">
+                          {conversation.lastMessageTimestamp && 
+                            formatDistanceToNow(conversation.lastMessageTimestamp, { addSuffix: true })}
                         </span>
                       </div>
                       
-                      <p className="text-sm text-gray-500 truncate">
-                        {getLastMessagePreview(conversation)}
+                      <p className="text-sm text-gray-500 truncate mt-1">
+                        {conversation.lastMessageContent 
+                          ? (conversation.lastMessageSenderId === currentUser?.id 
+                              ? 'You: ' 
+                              : '') + conversation.lastMessageContent
+                          : 'No messages yet'}
                       </p>
                     </div>
                   </div>

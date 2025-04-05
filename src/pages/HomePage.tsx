@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +37,14 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const university = currentUser?.university || 'TDTU University'; // Default for demo
   
+  // Track university in session state when component mounts
+  useEffect(() => {
+    if (university) {
+      console.log("Tracking university in session state:", university);
+      sessionStorage.setItem('userUniversity', university);
+    }
+  }, [university]);
+  
   const handleChannelSelect = (channelType: ChannelType) => {
     // Store the selected channel in session storage
     sessionStorage.setItem('selectedChannel', channelType);
@@ -47,6 +54,12 @@ const HomePage: React.FC = () => {
   return (
     <Layout>
       <div className="flex flex-col p-4 pb-20">
+        {/* University display */}
+        <div className="mb-6 bg-purple-50 p-4 rounded-xl">
+          <h2 className="text-lg font-medium text-purple-800">Your University</h2>
+          <p className="text-purple-700">{university}</p>
+        </div>
+
         <h1 className="text-xl font-bold mb-4">Channels</h1>
         
         <div className="space-y-2 mb-6">

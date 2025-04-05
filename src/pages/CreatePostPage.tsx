@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -11,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ChannelType, ConversationType } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import imageCompression from 'browser-image-compression';
 import {
   Select,
   SelectContent,
@@ -21,14 +21,14 @@ import {
 
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, session } = useAuth();
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
-  const [category, setCategory] = useState<'Study' | 'Fun' | 'Drama' | 'Other' | ''>('');
+  const [category, setCategory] = useState<string>('');
   const [channelType, setChannelType] = useState<ChannelType | ''>('');
   const [chatroomName, setChatroomName] = useState('');
   
@@ -46,16 +46,36 @@ const CreatePostPage: React.FC = () => {
       setChannelType(storedChannel);
     }
   }, []);
+  
+  // Reset category when channel type changes
+  useEffect(() => {
+    setCategory('');
+  }, [channelType]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImage(file);
+    if (!file) return;
+    
+    try {
+      // Compress the image
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      };
+      
+      const compressedFile = await imageCompression(file, options);
+      setImage(compressedFile);
+      
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast.error('Failed to process image. Please try again with a different image.');
     }
   };
 
@@ -65,12 +85,7 @@ const CreatePostPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentUser) {
-      toast.error('You must be logged in to create a post');
-      navigate('/login');
-      return;
-    }
-
+    // Validate all required fields
     if (!title.trim()) {
       toast.error('Please enter a title');
       return;
@@ -103,79 +118,118 @@ const CreatePostPage: React.FC = () => {
       let imageUrl = null;
       if (image) {
         const fileExt = image.name.split('.').pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const filePath = `post-images/${fileName}`;
+        const fileName = `${currentUser.id}/${uuidv4()}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from('posts')
-          .upload(filePath, image);
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('post-images')
+          .upload(fileName, image);
         
         if (uploadError) {
-          throw uploadError;
+          console.error('Upload error:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError.message}`);
         }
         
         const { data } = supabase.storage
-          .from('posts')
-          .getPublicUrl(filePath);
+          .from('post-images')
+          .getPublicUrl(fileName);
         
         imageUrl = data.publicUrl;
       }
       
-      // Create the post
-      const { data: post, error: postError } = await supabase
-        .from('posts')
-        .insert({
-          user_id: currentUser.id,
-          title,
-          content,
-          university: (channelType === 'Forum' || channelType === 'Community') ? 'all' : currentUser.university,
-          image_url: imageUrl,
-          channel_type: channelType,
-          category
-        })
-        .select()
-        .single();
-      
-      if (postError) {
-        throw postError;
-      }
-      
-      // Create the chat room
-      const { data: chatRoom, error: chatRoomError } = await supabase
-        .from('chat_rooms')
-        .insert({
-          post_id: post.id,
-          chatroom_name: chatroomName,
-          chatroom_photo: currentUser.profilePictureUrl
-        })
-        .select()
-        .single();
-      
-      if (chatRoomError) {
-        throw chatRoomError;
-      }
-      
-      // Add the user as a participant in the chat room
-      const { error: participantError } = await supabase
-        .from('chat_room_participants')
-        .insert({
-          chatroom_id: chatRoom.id,
-          user_id: currentUser.id
+      // Use the RPC function to create post, conversation, and participant in a single call
+      try {
+        const { data, error } = await supabase.rpc('create_post_with_chatroom', {
+          p_user_id: currentUser.id,
+          p_title: title,
+          p_content: content,
+          p_university: (channelType === 'Forum' || channelType === 'Community') ? 'all' : currentUser.university,
+          p_image_url: imageUrl,
+          p_channel_type: channelType as ChannelType,
+          p_category: category,
+          p_chatroom_name: chatroomName
         });
-      
-      if (participantError) {
-        throw participantError;
+        
+        if (error) {
+          console.error('RPC function error:', error);
+          throw new Error(error.message || 'Failed to create post');
+        }
+
+        console.log('RPC function success:', data);
+        toast.success('Post created successfully!');
+        navigate('/feed');
+
+      } catch (rpcError: any) {
+        console.error('RPC function failed, falling back to direct operations:', rpcError);
+        
+        // OPTION 2: Fallback to direct database operations
+        // Create the post
+        const { data: post, error: postError } = await supabase
+          .from('posts')
+          .insert({
+            user_id: currentUser.id,
+            title,
+            content,
+            university: (channelType === 'Forum' || channelType === 'Community') ? 'all' : currentUser.university,
+            image_url: imageUrl,
+            channel_type: channelType,
+            category
+          })
+          .select()
+          .single();
+        
+        if (postError) {
+          throw new Error(`Post creation failed: ${postError.message}`);
+        }
+        
+        // Create the chat room
+        const { data: conversation, error: conversationError } = await supabase
+          .from('conversations')
+          .insert({
+            type: 'chatroom',
+            chatroom_name: chatroomName,
+            photo: currentUser.profilePictureUrl,
+            post_id: post.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (conversationError) {
+          throw new Error(`Conversation creation failed: ${conversationError.message}`);
+        }
+        
+        // Add the user as a participant in the conversation
+        const { error: participantError } = await supabase
+          .from('conversation_participants')
+          .insert({
+            conversation_id: conversation.id,
+            user_id: currentUser.id,
+            role: 'admin'  // Set creator as admin
+          });
+        
+        if (participantError) {
+          throw new Error(`Participant creation failed: ${participantError.message}`);
+        }
+        
+        toast.success('Post created successfully!');
+        navigate('/feed');
       }
-      
-      toast.success('Post created successfully!');
-      navigate('/feed');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating post:', error);
-      toast.error('Failed to create post. Please try again.');
+      toast.error(error.message || 'Failed to create post. Please try again.');
     } finally {
       setIsPosting(false);
     }
   };
+
+  // Check if all required fields are filled
+  const isFormValid = 
+    title.trim() !== '' && 
+    content.trim() !== '' && 
+    category !== '' && 
+    channelType !== '' && 
+    chatroomName.trim() !== '';
 
   return (
     <Layout>
@@ -196,7 +250,7 @@ const CreatePostPage: React.FC = () => {
           
           <Button 
             onClick={handleSubmit} 
-            disabled={isPosting || !title.trim() || !content.trim() || !category || !channelType}
+            disabled={isPosting || !isFormValid}
             className="bg-cendy-primary hover:bg-cendy-primary/90"
           >
             {isPosting ? 'Posting...' : 'Post'}
@@ -208,7 +262,11 @@ const CreatePostPage: React.FC = () => {
           {/* Channel Type */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Channel</h3>
-            <Select value={channelType} onValueChange={(value) => setChannelType(value as ChannelType)}>
+            <Select value={channelType} onValueChange={(value) => {
+              setChannelType(value as ChannelType);
+              // Reset category when changing channel type
+              setCategory('');
+            }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a channel" />
               </SelectTrigger>
@@ -224,15 +282,36 @@ const CreatePostPage: React.FC = () => {
           {/* Category */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Category</h3>
-            <Select value={category} onValueChange={(value) => setCategory(value as any)}>
+            <Select value={category} onValueChange={(value) => setCategory(value)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Study">Study</SelectItem>
-                <SelectItem value="Fun">Fun</SelectItem>
-                <SelectItem value="Drama">Drama</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                {(channelType === 'CampusGeneral' || channelType === 'Forum') && (
+                  <>
+                    <SelectItem value="Study">Study</SelectItem>
+                    <SelectItem value="Fun">Fun</SelectItem>
+                    <SelectItem value="Confess">Confess</SelectItem>
+                    <SelectItem value="Work">Work</SelectItem>
+                    <SelectItem value="Q&A">Q&A</SelectItem>
+                    <SelectItem value="Drama">Drama</SelectItem>
+                    <SelectItem value="Room/Roomate">Room/Roomate</SelectItem>
+                    <SelectItem value="Items for Sale">Items for Sale</SelectItem>
+                    <SelectItem value="Missing Items">Missing Items</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </>
+                )}
+                
+                {(channelType === 'CampusCommunity' || channelType === 'Community') && (
+                  <>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="L">L</SelectItem>
+                    <SelectItem value="G">G</SelectItem>
+                    <SelectItem value="B">B</SelectItem>
+                    <SelectItem value="T">T</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>

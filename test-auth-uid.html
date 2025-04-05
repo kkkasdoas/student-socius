@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test auth.uid() via RPC</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      white-space: pre-wrap;
+    }
+    button {
+      padding: 8px 15px;
+      margin-right: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    input {
+      padding: 8px;
+      margin-bottom: 10px;
+      width: 250px;
+    }
+    .login-form {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test auth.uid() via RPC</h1>
+  
+  <div class="login-form">
+    <h3>Login</h3>
+    <div>
+      <input type="email" id="email" placeholder="Email">
+    </div>
+    <div>
+      <input type="password" id="password" placeholder="Password">
+    </div>
+    <button onclick="login()">Login</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+  
+  <div>
+    <button onclick="checkAuthState()">Check Auth State</button>
+    <button onclick="testAuthUid()">Test auth.uid()</button>
+  </div>
+  
+  <div class="result" id="result">Results will appear here...</div>
+  
+  <script>
+    // Initialize Supabase client
+    const SUPABASE_URL = 'https://qvjuxusvepjufcxdxswd.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2anV4dXN2ZXBqdWZjeGR4c3dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNDEyNDAsImV4cCI6MjA1ODgxNzI0MH0.l2wqRPEW3y34_e3t2lpcTN-tyYS1kXFCSrw9n9CzC08';
+    
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Function to show results
+    function showResult(message) {
+      document.getElementById('result').textContent = message;
+    }
+    
+    // Function to append to results
+    function appendResult(message) {
+      const resultElement = document.getElementById('result');
+      resultElement.textContent += '\n' + message;
+    }
+    
+    // Function to clear results
+    function clearResult() {
+      document.getElementById('result').textContent = '';
+    }
+    
+    // Login function
+    async function login() {
+      clearResult();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      if (!email || !password) {
+        showResult('Please enter both email and password');
+        return;
+      }
+      
+      showResult('Logging in...');
+      
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (error) {
+          showResult(`Login error: ${error.message}`);
+        } else {
+          showResult(`Login successful!\nUser: ${JSON.stringify(data.user, null, 2)}`);
+        }
+      } catch (err) {
+        showResult(`Unexpected error: ${err.message}`);
+      }
+    }
+    
+    // Logout function
+    async function logout() {
+      clearResult();
+      showResult('Logging out...');
+      
+      try {
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          showResult(`Logout error: ${error.message}`);
+        } else {
+          showResult('Logout successful!');
+        }
+      } catch (err) {
+        showResult(`Unexpected error: ${err.message}`);
+      }
+    }
+    
+    // Check auth state function
+    async function checkAuthState() {
+      clearResult();
+      showResult('Checking authentication state...');
+      
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          showResult(`Error checking auth state: ${error.message}`);
+        } else if (!data.session) {
+          showResult('Not authenticated. Please login.');
+        } else {
+          showResult(`Authenticated as: ${JSON.stringify(data.session.user, null, 2)}`);
+        }
+      } catch (err) {
+        showResult(`Unexpected error: ${err.message}`);
+      }
+    }
+    
+    // Test auth.uid function
+    async function testAuthUid() {
+      clearResult();
+      showResult('Testing if auth.uid() returns a UUID...');
+      
+      try {
+        // First check if user is signed in
+        const { data: authData, error: authError } = await supabase.auth.getSession();
+        
+        if (authError) {
+          showResult(`Authentication error: ${authError.message}`);
+          return;
+        }
+        
+        if (!authData.session) {
+          showResult('No user is signed in. Please sign in before running this test.');
+          return;
+        }
+        
+        appendResult(`Current user ID from auth: ${authData.session.user.id}`);
+        
+        // Call the RPC function
+        appendResult('Calling test_uid RPC function...');
+        const { data, error } = await supabase.rpc('test_uid');
+        
+        if (error) {
+          appendResult(`Error calling test_uid RPC function: ${error.message}`);
+          return;
+        }
+        
+        appendResult(`Result from test_uid RPC function: ${data}`);
+        
+        // Check if the result is a valid UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(data)) {
+          appendResult('✅ Success: The returned value is a valid UUID');
+          
+          // Check if it matches the current user's ID
+          if (data === authData.session.user.id) {
+            appendResult('✅ Success: The UUID matches the current user ID');
+          } else {
+            appendResult('❌ Warning: The UUID does not match the current user ID');
+          }
+        } else {
+          appendResult('❌ Error: The returned value is not a valid UUID');
+        }
+      } catch (err) {
+        appendResult(`Unexpected error: ${err.message}`);
+      }
+    }
+    
+    // Check auth state on page load
+    window.onload = function() {
+      checkAuthState();
+    };
+  </script>
+</body>
+</html> 
