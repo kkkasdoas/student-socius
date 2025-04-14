@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
+import { ChevronLeft, Image as ImageIcon, X, Camera } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChannelType, ConversationType } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +19,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Add a default fallback image URL
+const DEFAULT_PROFILE_IMAGE = '/default-profile.png';  // Make sure to add this image to your public folder
+
+// Add a cache for profile images
+const imageCache = new Map<string, string>();
+
+// Helper function to handle profile image loading with caching and fallback
+const loadProfileImage = async (url: string): Promise<string> => {
+  // Check cache first
+  if (imageCache.has(url)) {
+    return imageCache.get(url)!;
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    imageCache.set(url, objectUrl);
+    return objectUrl;
+  } catch (error) {
+    console.warn(`Failed to load image from ${url}:`, error);
+    return DEFAULT_PROFILE_IMAGE;
+  }
+};
+
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, session } = useAuth();
@@ -27,6 +55,8 @@ const CreatePostPage: React.FC = () => {
   const [content, setContent] = useState('');
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [chatroomImage, setChatroomImage] = useState<File | null>(null);
+  const [chatroomImagePreview, setChatroomImagePreview] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [category, setCategory] = useState<string>('');
   const [channelType, setChannelType] = useState<ChannelType | ''>('');
@@ -51,6 +81,53 @@ const CreatePostPage: React.FC = () => {
   useEffect(() => {
     setCategory('');
   }, [channelType]);
+
+  // Function to generate a Telegram-style default group icon (letter on colored background)
+  const generateTelegramStyleGroupIcon = (name: string): string => {
+    // Define Telegram's color palette (similar colors to Telegram's defaults)
+    const colors = [
+      '#5A9DD5', // blue
+      '#5AD59F', // teal
+      '#D55A5A', // red
+      '#D5A65A', // orange
+      '#8C5AD5', // purple
+      '#D55AB3', // pink
+    ];
+    
+    // Use the first character of the name for the icon
+    const firstChar = name.trim()[0] || 'G';
+    
+    // Determine a consistent color based on the name
+    // This ensures the same name always gets the same color
+    const colorIndex = name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+    const backgroundColor = colors[colorIndex];
+    
+    // Create a canvas element to generate the image
+    const canvas = document.createElement('canvas');
+    const size = 200; // Size of the icon
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Draw background
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Draw text
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 100px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(firstChar.toUpperCase(), size / 2, size / 2);
+      
+      // Convert canvas to data URL
+      return canvas.toDataURL('image/png');
+    }
+    
+    // Fallback to a simple colored square if canvas fails
+    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='${backgroundColor.replace('#', '%23')}' /%3E%3Ctext x='100' y='120' font-family='Arial' font-size='100' font-weight='bold' fill='white' text-anchor='middle'%3E${firstChar.toUpperCase()}%3C/text%3E%3C/svg%3E`;
+  };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,9 +156,41 @@ const CreatePostPage: React.FC = () => {
     }
   };
 
+  const handleChatroomImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      // Compress the image
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      };
+      
+      const compressedFile = await imageCompression(file, options);
+      setChatroomImage(compressedFile);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setChatroomImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      console.error('Error compressing chatroom image:', error);
+      toast.error('Failed to process chatroom image. Please try again with a different image.');
+    }
+  };
+
   const removeImage = () => {
     setImage(null);
     setImagePreview(null);
+  };
+
+  const removeChatroomImage = () => {
+    setChatroomImage(null);
+    setChatroomImagePreview(null);
   };
 
   const handleSubmit = async () => {
@@ -114,7 +223,7 @@ const CreatePostPage: React.FC = () => {
     try {
       setIsPosting(true);
       
-      // Upload the image to Supabase Storage if it exists
+      // Upload the post image to Supabase Storage if it exists
       let imageUrl = null;
       if (image) {
         const fileExt = image.name.split('.').pop();
@@ -135,7 +244,61 @@ const CreatePostPage: React.FC = () => {
         
         imageUrl = data.publicUrl;
       }
-      
+
+      // Upload the chatroom image to Supabase Storage if it exists
+      let chatroomImageUrl = null;
+      if (chatroomImage) {
+        const fileExt = chatroomImage.name.split('.').pop();
+        const fileName = `chatrooms/${currentUser.id}/${uuidv4()}.${fileExt}`;
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('conversation-photos')
+          .upload(fileName, chatroomImage);
+        
+        if (uploadError) {
+          console.error('Chatroom image upload error:', uploadError);
+          throw new Error(`Chatroom image upload failed: ${uploadError.message}`);
+        }
+        
+        const { data } = supabase.storage
+          .from('conversation-photos')
+          .getPublicUrl(fileName);
+        
+        chatroomImageUrl = data.publicUrl;
+      } else {
+        // Generate a Telegram-style default group icon
+        const iconDataUrl = generateTelegramStyleGroupIcon(chatroomName);
+        
+        // Convert data URL to blob and upload to Supabase
+        try {
+          const response = await fetch(iconDataUrl);
+          const blob = await response.blob();
+          
+          const fileName = `default-icons/${uuidv4()}.png`;
+          
+          const { error, data } = await supabase.storage
+            .from('conversation-photos')
+            .upload(fileName, blob);
+            
+          if (error) {
+            console.error('Error uploading default icon:', error);
+            // If upload fails, use data URL directly (not ideal for production)
+            chatroomImageUrl = iconDataUrl;
+          } else {
+            // Get the URL of the uploaded icon
+            const { data: urlData } = supabase.storage
+              .from('conversation-photos')
+              .getPublicUrl(fileName);
+              
+            chatroomImageUrl = urlData.publicUrl;
+          }
+        } catch (error) {
+          console.error('Error processing default icon:', error);
+          // Fallback
+          chatroomImageUrl = iconDataUrl;
+        }
+      }
+
       // Use the RPC function to create post, conversation, and participant in a single call
       try {
         const { data, error } = await supabase.rpc('create_post_with_chatroom', {
@@ -146,7 +309,8 @@ const CreatePostPage: React.FC = () => {
           p_image_url: imageUrl,
           p_channel_type: channelType as ChannelType,
           p_category: category,
-          p_chatroom_name: chatroomName
+          p_chatroom_name: chatroomName,
+          p_chatroom_photo: chatroomImageUrl
         });
         
         if (error) {
@@ -187,7 +351,7 @@ const CreatePostPage: React.FC = () => {
           .insert({
             type: 'chatroom',
             chatroom_name: chatroomName,
-            photo: currentUser.profilePictureUrl,
+            photo: chatroomImageUrl, // Use the chatroom image instead of post image
             post_id: post.id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -235,8 +399,8 @@ const CreatePostPage: React.FC = () => {
     <Layout>
       <div className="flex flex-col h-screen bg-white">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center">
+        <div className="flex flex-col p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -245,16 +409,74 @@ const CreatePostPage: React.FC = () => {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-semibold">Create Post</h1>
+            <h1 className="text-xl font-semibold">New Group</h1>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={isPosting || !isFormValid}
+              variant="link"
+              className="text-cendy-primary"
+            >
+              {isPosting ? 'Creating...' : 'Create'}
+            </Button>
           </div>
           
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isPosting || !isFormValid}
-            className="bg-cendy-primary hover:bg-cendy-primary/90"
-          >
-            {isPosting ? 'Posting...' : 'Post'}
-          </Button>
+          {/* Chatroom Name and Camera - moved to top */}
+          <div className="mt-4 bg-gray-100 rounded-lg p-3 flex items-center">
+            <div className="flex-shrink-0 mr-3 relative">
+              <label htmlFor="chatroom-image" className="cursor-pointer">
+                {chatroomImagePreview ? (
+                  <div className="w-12 h-12 rounded-full overflow-hidden">
+                    <img 
+                      src={chatroomImagePreview} 
+                      alt="Chatroom avatar" 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity rounded-full">
+                      <Camera className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
+                    <Camera className="h-5 w-5 text-teal-500" />
+                  </div>
+                )}
+                <input
+                  id="chatroom-image"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleChatroomImageChange}
+                />
+              </label>
+              {chatroomImagePreview && (
+                <button 
+                  onClick={removeChatroomImage}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            
+            <div className="flex-1 relative">
+              <Input
+                value={chatroomName}
+                onChange={(e) => setChatroomName(e.target.value)}
+                placeholder="Chatroom name"
+                className="border-none bg-transparent focus-visible:ring-0 pr-8 text-base"
+              />
+              {chatroomName && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6"
+                  onClick={() => setChatroomName('')}
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
         
         {/* Form */}
@@ -338,55 +560,41 @@ const CreatePostPage: React.FC = () => {
             />
           </div>
           
-          {/* Chatroom Name */}
+          {/* Image Upload Section */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Chatroom Name</h3>
-            <Input
-              value={chatroomName}
-              onChange={(e) => setChatroomName(e.target.value)}
-              placeholder="Enter a name for the chatroom"
-              className="w-full"
-            />
-          </div>
-          
-          {/* Image Upload */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Image (Optional)</h3>
-            
-            {imagePreview ? (
-              <div className="relative rounded-lg overflow-hidden">
-                <img 
-                  src={imagePreview} 
-                  alt="Preview" 
-                  className="w-full h-auto max-h-[300px] object-contain bg-gray-100"
-                />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 rounded-full"
-                  onClick={removeImage}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Post Image (Optional)</h3>
+            {!imagePreview ? (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <label htmlFor="post-image" className="cursor-pointer">
+                  <div className="flex flex-col items-center">
+                    <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">Click to upload an image</span>
+                  </div>
+                  <input
+                    id="post-image"
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleImageChange}
+                  />
+                </label>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <div className="mt-4 flex text-sm text-gray-600 justify-center">
-                  <label
-                    htmlFor="file-upload"
-                    className="relative cursor-pointer rounded-md font-medium text-cendy-primary hover:text-cendy-primary/80"
+              <div className="mt-4">
+                <div className="relative rounded-lg overflow-hidden">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-full h-auto max-h-[300px] object-contain bg-gray-100"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 rounded-full"
+                    onClick={removeImage}
                   >
-                    <span>Upload an image</span>
-                    <input
-                      id="file-upload"
-                      name="file-upload"
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImageChange}
-                    />
-                  </label>
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             )}

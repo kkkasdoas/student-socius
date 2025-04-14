@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Post, ChannelType, GenderFilter } from '@/types';
 import type { FilterOption } from '@/types';
 import PostCard from './PostCard';
 import { Search, Filter, ChevronDown, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { postService } from '@/services/PostService';
 import {
   Select,
   SelectContent,
@@ -48,9 +48,38 @@ const ChannelTabsWrapper: React.FC<ChannelTabsProps> = ({ university }) => {
   return <ChannelTabsWithInitialChannel university={university} initialChannel={initialChannel!} />;
 };
 
+// Filter Button Component - Memoized for performance
+const FilterButton = React.memo(({ label, active, onClick }: FilterButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${
+        active 
+          ? 'bg-cendy-primary/10 text-cendy-primary font-medium' 
+          : 'hover:bg-gray-100'
+      }`}
+    >
+      {label}
+    </button>
+  );
+});
+
+// Memoized post card wrapper for better performance
+const MemoizedPostCard = React.memo(({ post, ref }: { post: Post; ref?: React.RefObject<HTMLDivElement> }) => (
+  <div ref={ref}>
+    <PostCard post={post} />
+  </div>
+));
+
 // Modify the original component to accept initialChannel as a prop instead of using default state
 interface ChannelTabsWithInitialChannelProps extends ChannelTabsProps {
   initialChannel: ChannelType;
+}
+
+interface FilterButtonProps {
+  label: string;
+  active: boolean;
+  onClick: () => void;
 }
 
 const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps> = ({ 
@@ -62,7 +91,6 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
   const [activeChannel, setActiveChannel] = useState<ChannelType>(initialChannel);
   const [filterOption, setFilterOption] = useState<FilterOption>('New');
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
-  const [genderFilter, setGenderFilter] = useState<GenderFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [showHeader, setShowHeader] = useState(true);
   const lastScrollY = useRef(0);
@@ -75,12 +103,35 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
   const observerRef = useRef<IntersectionObserver>();
   const initialFetchCompleted = useRef(false);
   const channelChangeInProgress = useRef(false);
+  
+  // Use a ref for previous request params to avoid unnecessary renders
   const previousRequestParams = useRef({
     channel: '',
     filter: '',
     category: '',
     page: 0
   });
+  
+  // Create a ref to track the request counter
+  const requestCounter = useRef(0);
+  
+  // Create a ref to track the current request
+  const currentRequest = useRef<{
+    id: number;
+    params: {
+      channel: string;
+      filter: string;
+      category: string;
+      page: number;
+    }
+  } | null>(null);
+  
+  // Calculate the university to use - memoize it to avoid recalculations
+  const universityToUse = useMemo(() => {
+    return activeChannel === 'Forum' || activeChannel === 'Community'
+      ? 'all'
+      : currentUser?.university || university;
+  }, [activeChannel, currentUser?.university, university]);
   
   // Handle scroll events to hide/show header
   useEffect(() => {
@@ -117,14 +168,12 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
     }
   }, []);
   
-  // Fetch posts from Supabase when activeChannel, filterOption, or category changes
+  // Reset posts and pagination when filter criteria change
   useEffect(() => {
     if (initialFetchCompleted.current) {
       setPosts([]);
       setPageNumber(1);
       setHasMore(true);
-      
-      // Don't need to call fetchPosts() here as it will be triggered by the state changes
     } else if (channelChangeInProgress.current) {
       // This is the initial channel change from sessionStorage
       channelChangeInProgress.current = false;
@@ -135,54 +184,10 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
     }
   }, [activeChannel, filterOption, categoryFilter]);
   
-  // Fetch posts when pageNumber changes
+  // Fetch posts when filter parameters or page number changes
   useEffect(() => {
-    // Create an object representing current request parameters
-    const currentParams = {
-      channel: activeChannel,
-      filter: filterOption,
-      category: categoryFilter || '',
-      page: pageNumber
-    };
-    
-    // Prevent duplicate calls with same parameters
-    const paramsChanged = 
-      currentParams.channel !== previousRequestParams.current.channel ||
-      currentParams.filter !== previousRequestParams.current.filter ||
-      currentParams.category !== previousRequestParams.current.category ||
-      currentParams.page !== previousRequestParams.current.page;
-    
-    // Only fetch if we've completed the initial setup and parameters changed
-    if (initialFetchCompleted.current && paramsChanged) {
-      previousRequestParams.current = {...currentParams};
-      fetchPosts();
-    }
-  }, [pageNumber, activeChannel, filterOption, categoryFilter]);
-  
-  // Create a ref to track the actual request being made
-  const currentRequest = useRef<{
-    id: number;
-    params: {
-      channel: string;
-      filter: string;
-      category: string;
-      page: number;
-    }
-  } | null>(null);
-  
-  let requestCounter = useRef(0);
-  
-  // Simplify to a single fetch useEffect for both filter changes and pagination
-  useEffect(() => {
-    // Reset posts when filter parameters change, not on pagination
-    const isFilterChange = activeChannel !== initialChannel || 
-                          filterOption !== 'New' || 
-                          categoryFilter !== undefined;
-    
-    if (isFilterChange && pageNumber === 1) {
-      setPosts([]);
-      setHasMore(true);
-    }
+    // Only proceed if initialization is complete
+    if (!initialFetchCompleted.current) return;
     
     // Generate unique ID for this request
     const requestId = ++requestCounter.current;
@@ -195,6 +200,18 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
       page: pageNumber
     };
     
+    // Only fetch if parameters have changed
+    const paramsChanged = 
+      requestParams.channel !== previousRequestParams.current.channel ||
+      requestParams.filter !== previousRequestParams.current.filter ||
+      requestParams.category !== previousRequestParams.current.category ||
+      requestParams.page !== previousRequestParams.current.page;
+      
+    if (!paramsChanged) return;
+    
+    // Update previous params reference
+    previousRequestParams.current = { ...requestParams };
+    
     // Store this request as the current one
     currentRequest.current = {
       id: requestId,
@@ -206,7 +223,7 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
   }, [activeChannel, filterOption, categoryFilter, pageNumber]);
   
   // Modified fetchPosts to handle request tracking
-  const fetchPosts = async (
+  const fetchPosts = useCallback(async (
     requestId: number, 
     params: {
       channel: string;
@@ -215,6 +232,7 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
       page: number;
     }
   ) => {
+    // Don't fetch if we've already determined there are no more posts
     if (!hasMore && params.page > 1) return;
     
     try {
@@ -226,30 +244,28 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
         return; // Cancel if a newer request has been made
       }
       
-      // Check if the active channel is Forum or Community, use "all" instead of user's university
-      const universityToUse = params.channel === 'Forum' || params.channel === 'Community' 
-        ? 'all' 
-        : currentUser?.university || university;
-      
       // Store university in session storage
       sessionStorage.setItem('userUniversity', universityToUse);
       
-      console.log("Making API call:", {
-        university_input: universityToUse,
-        channel_input: params.channel,
-        sort_by: params.filter.toLowerCase(),
-        category_input: params.category || null,
-        page_number: params.page
+      console.log("=== POST SERVICE REQUEST START ===");
+      console.log("Request ID:", requestId);
+      console.log("Parameters sent to postService.getFilteredPosts:", {
+        university: universityToUse,
+        channelType: params.channel,
+        sortBy: params.filter.toLowerCase(),
+        category: params.category || undefined,
+        page: params.page
       });
+      console.log("=== POST SERVICE REQUEST END ===");
       
-      // Call the Supabase function with the required parameters
-      const { data, error } = await supabase.rpc('get_filtered_posts_with_reactions', {
-        university_input: universityToUse,
-        channel_input: params.channel,
-        sort_by: params.filter.toLowerCase(),
-        category_input: params.category || null,
-        page_number: params.page
-      });
+      // Use the postService to fetch posts
+      const posts = await postService.getFilteredPosts(
+        universityToUse,
+        params.channel,
+        params.page,
+        params.category || undefined,
+        params.filter.toLowerCase()
+      );
       
       // Check again if this request is still current (in case another request started during the fetch)
       if (currentRequest.current?.id !== requestId) {
@@ -257,94 +273,72 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
         return;
       }
       
-      if (error) {
-        throw error;
+      // Handle empty results - no more posts to load
+      if (!posts || posts.length === 0) {
+        setHasMore(false);
+        setLoading(false);
+        return;
       }
       
-      if (data) {
-        if (data.length === 0) {
-          setHasMore(false);
-          return;
+      // Update the posts state based on page number
+      setPosts(prevPosts => {
+        if (params.page === 1) {
+          return posts;
+        } else {
+          // Filter out any duplicates
+          const existingIds = new Set(prevPosts.map(post => post.id));
+          const uniqueNewPosts = posts.filter(post => !existingIds.has(post.id));
+          return [...prevPosts, ...uniqueNewPosts];
         }
-        
-        // Transform the data to match our Post type
-        const transformedPosts: Post[] = data.map(post => ({
-          id: post.post_id,
-          userId: '', // Not provided in the function response
-          title: post.post_title,
-          content: post.post_content,
-          university: universityToUse, // Use the current university
-          conversationId: '', // Not provided in the function response
-          imageUrl: '', // Not provided in the function response
-          channelType: params.channel, // Use the current channel
-          category: post.post_category,
-          isEdited: post.post_is_edited,
-          createdAt: new Date(post.post_created_at),
-          updatedAt: new Date(post.post_updated_at),
-          user: {
-            id: '', // Not provided in the function response
-            displayName: post.user_display_name,
-            profilePictureUrl: post.user_profile_picture_url,
-            university: universityToUse,
-            createdAt: new Date(), // Not provided in the function response
-            updatedAt: new Date()  // Not provided in the function response
-          },
-          reactions: [], // The function already provides aggregated reaction data
-          totalReactions: post.total_reactions,
-          topReactions: [
-            { type: post.top_reaction_1_type, count: post.top_reaction_1_count },
-            { type: post.top_reaction_2_type, count: post.top_reaction_2_count }
-          ].filter(r => r.type) // Filter out undefined reactions
-        }));
-        
-        setPosts(prevPosts => {
-          if (params.page === 1) {
-            return transformedPosts;
-          } else {
-            // Filter out any duplicates
-            const existingIds = new Set(prevPosts.map(post => post.id));
-            const uniqueNewPosts = transformedPosts.filter(post => !existingIds.has(post.id));
-            return [...prevPosts, ...uniqueNewPosts];
-          }
-        });
-      }
+      });
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [universityToUse, hasMore]);
   
-  // Filter posts by search query
-  const filteredPosts = posts.filter(post => {
-    // Search filter
-    if (searchQuery) {
+  // Filter posts by search query - memoize to avoid unnecessary filtering
+  const filteredPosts = useMemo(() => {
+    if (!searchQuery) return posts;
+    
+    return posts.filter(post => {
       return post.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
              post.title.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-    
-    return true;
-  });
+    });
+  }, [posts, searchQuery]);
   
-  // Handle navigating to create post page
-  const handleCreatePost = () => {
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleCreatePost = useCallback(() => {
     navigate('/create-post', { 
       state: { 
         channelType: activeChannel,
-        university: activeChannel === 'Forum' || activeChannel === 'Community' ? 'all' : currentUser?.university
+        university: universityToUse
       }
     });
-  };
+  }, [navigate, activeChannel, universityToUse]);
 
   // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-  };
+  }, []);
 
   // Handle category filter change
-  const handleCategoryChange = (value: string) => {
+  const handleCategoryChange = useCallback((value: string) => {
     setCategoryFilter(value === 'All' ? undefined : value);
-  };
+  }, []);
+
+  // Handle channel change
+  const handleChannelChange = useCallback((value: string) => {
+    const newChannelType = value as ChannelType;
+    // Reset filters to default when switching between any channel types
+    if (activeChannel !== newChannelType) {
+      setFilterOption('New');
+      setCategoryFilter(undefined);
+    }
+    setActiveChannel(newChannelType);
+    sessionStorage.setItem('selectedChannel', value);
+  }, [activeChannel]);
 
   // Update the lastPostElementRef callback to prevent premature pagination
   const lastPostElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -371,10 +365,7 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
       >
         {/* Channel Selector */}
         <div className="p-3 flex items-center gap-2">
-          <Select value={activeChannel} onValueChange={(value) => {
-            setActiveChannel(value as ChannelType);
-            sessionStorage.setItem('selectedChannel', value);
-          }}>
+          <Select value={activeChannel} onValueChange={handleChannelChange}>
             <SelectTrigger className="w-full bg-gray-100 rounded-xl shadow-none border-none h-12">
               <SelectValue placeholder="Select Channel" />
             </SelectTrigger>
@@ -485,6 +476,7 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
           <div>
             {filteredPosts.map((post, index) => {
               if (filteredPosts.length === index + 1) {
+                // Last post - add the ref for infinite scroll
                 return (
                   <div key={post.id} ref={lastPostElementRef}>
                     <PostCard post={post} />
@@ -513,28 +505,6 @@ const ChannelTabsWithInitialChannel: React.FC<ChannelTabsWithInitialChannelProps
         )}
       </div>
     </div>
-  );
-};
-
-// Filter Button Component
-interface FilterButtonProps {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}
-
-const FilterButton: React.FC<FilterButtonProps> = ({ label, active, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${
-        active 
-          ? 'bg-cendy-primary/10 text-cendy-primary font-medium' 
-          : 'hover:bg-gray-100'
-      }`}
-    >
-      {label}
-    </button>
   );
 };
 

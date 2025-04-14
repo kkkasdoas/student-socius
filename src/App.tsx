@@ -10,10 +10,10 @@ import SettingsPage from '@/pages/SettingsPage';
 import ConversationsPage from '@/pages/ConversationsPage';
 import MessagePage from '@/pages/MessagePage';
 import ChatroomInfoPage from '@/pages/ChatroomInfoPage';
+import EditChatroomInfoPage from '@/pages/EditChatroomInfoPage';
 import CreatePostPage from '@/pages/CreatePostPage';
 import EditProfilePage from '@/pages/EditProfilePage';
 import NotificationsSettingsPage from '@/pages/NotificationsSettingsPage';
-import LanguageSettingsPage from '@/pages/LanguageSettingsPage';
 import BlockedUsersPage from '@/pages/BlockedUsersPage';
 import UserProfilePage from '@/pages/UserProfilePage';
 import Index from '@/pages/Index';
@@ -31,6 +31,12 @@ import '@fontsource/inter/700.css';
 const ChatroomRedirect = () => {
   const { roomId } = useParams();
   return <Navigate replace to={`/conversation/${roomId}`} />;
+};
+
+// Redirect component for messages to conversation draft
+const MessagesRedirect = () => {
+  const { userId } = useParams();
+  return <Navigate replace to={`/conversation/draft/${userId}`} />;
 };
 
 // Protected route component
@@ -100,7 +106,7 @@ function App() {
               } />
               <Route path="/settings/language" element={
                 <ProtectedRoute>
-                  <LanguageSettingsPage />
+                  <Navigate replace to="/settings" />
                 </ProtectedRoute>
               } />
               <Route path="/settings/blocked-users" element={
@@ -132,6 +138,12 @@ function App() {
                   <MessagePage />
                 </ProtectedRoute>
               } />
+              {/* Route for draft conversations */}
+              <Route path="/conversation/draft/:userId" element={
+                <ProtectedRoute>
+                  <MessagePage />
+                </ProtectedRoute>
+              } />
               {/* Route for chatroom info */}
               <Route path="/chatroom-info/:roomId" element={
                 <ProtectedRoute>
@@ -139,10 +151,17 @@ function App() {
                 </ProtectedRoute>
               } />
               
+              {/* Route for editing chatroom info */}
+              <Route path="/chatroom-info/:roomId/edit" element={
+                <ProtectedRoute>
+                  <EditChatroomInfoPage />
+                </ProtectedRoute>
+              } />
+              
               {/* Legacy routes for backwards compatibility */}
               <Route path="/messages/:userId" element={
                 <ProtectedRoute>
-                  <Navigate replace to="/conversations" />
+                  <MessagesRedirect />
                 </ProtectedRoute>
               } />
               <Route path="/chatroom/:roomId" element={

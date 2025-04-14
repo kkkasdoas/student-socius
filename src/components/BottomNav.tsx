@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, MessageCircle, Settings } from 'lucide-react';
+import { conversationService } from '@/services/ConversationService';
 
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
@@ -35,6 +35,11 @@ const BottomNav: React.FC = () => {
     return location.pathname === path;
   };
   
+  const handleMessagesClick = async () => {
+    // Navigate directly to messages page, the conversation list will load data on mount
+    navigate('/messages');
+  };
+  
   return (
     <div 
       className={`fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-cendy-border flex items-center justify-around shadow-md z-10 transition-transform duration-300 ${
@@ -52,7 +57,7 @@ const BottomNav: React.FC = () => {
         icon={<MessageCircle className="w-6 h-6" />} 
         label="Messages" 
         active={location.pathname.startsWith('/messages')}
-        onClick={() => navigate('/messages')}
+        onClick={handleMessagesClick}
       />
       
       <NavButton 

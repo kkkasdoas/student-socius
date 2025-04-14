@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChevronLeft, Camera, Edit } from 'lucide-react';
+import { ChevronLeft, Camera, Edit, Facebook, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
@@ -15,6 +15,8 @@ const EditProfilePage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profilePictureUrl || null);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [facebookLink, setFacebookLink] = useState(currentUser?.socialLinks?.facebook || '');
+  const [instagramLink, setInstagramLink] = useState(currentUser?.socialLinks?.instagram || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   
@@ -23,6 +25,8 @@ const EditProfilePage: React.FC = () => {
       setDisplayName(currentUser.displayName || '');
       setBio(currentUser.bio || '');
       setProfileImage(currentUser.profilePictureUrl || null);
+      setFacebookLink(currentUser.socialLinks?.facebook || '');
+      setInstagramLink(currentUser.socialLinks?.instagram || '');
     }
   }, [currentUser]);
   
@@ -68,7 +72,11 @@ const EditProfilePage: React.FC = () => {
       await updateUserProfile({
         displayName,
         bio,
-        profilePictureUrl
+        profilePictureUrl,
+        socialLinks: {
+          facebook: facebookLink || undefined,
+          instagram: instagramLink || undefined
+        }
       });
       
       toast.success('Profile updated successfully');
@@ -172,6 +180,43 @@ const EditProfilePage: React.FC = () => {
                 <p className="text-xs text-gray-500 mt-1">
                   {bio.length}/200 characters
                 </p>
+              </div>
+            </div>
+            
+            {/* Social Links */}
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Social Media Links
+              </label>
+              
+              <div>
+                <label htmlFor="facebookLink" className="block text-xs text-gray-500 mb-1 flex items-center">
+                  <Facebook className="h-4 w-4 mr-1 text-blue-600" />
+                  Facebook Profile
+                </label>
+                <input
+                  type="text"
+                  id="facebookLink"
+                  value={facebookLink}
+                  onChange={(e) => setFacebookLink(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary/50"
+                  placeholder="https://facebook.com/your.username"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="instagramLink" className="block text-xs text-gray-500 mb-1 flex items-center">
+                  <Instagram className="h-4 w-4 mr-1 text-pink-600" />
+                  Instagram Profile
+                </label>
+                <input
+                  type="text"
+                  id="instagramLink"
+                  value={instagramLink}
+                  onChange={(e) => setInstagramLink(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary/50"
+                  placeholder="https://instagram.com/your.username"
+                />
               </div>
             </div>
             

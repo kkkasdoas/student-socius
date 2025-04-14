@@ -13,6 +13,30 @@ export type User = {
   isDeleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Additional fields from get_user_profile function
+  postCount?: number;
+  reactionCount?: number;
+  isBlocked?: boolean;
+  isMuted?: boolean;
+  isOwnProfile?: boolean;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+  };
+};
+
+// Define reaction types
+export type ReactionType = 'like' | 'heart' | 'laugh' | 'wow' | 'sad' | 'angry';
+
+// Type for reaction counts
+export type ReactionCounts = {
+  like: number;
+  heart: number;
+  laugh: number;
+  wow: number;
+  sad: number;
+  angry: number;
+  [key: string]: number; // Allow for dynamic keys
 };
 
 export type Post = {
@@ -28,14 +52,20 @@ export type Post = {
   isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
+  isOwnPost?: boolean;
+  isSaved?: boolean;
+  isHidden?: boolean;
+  userReaction?: ReactionType | null;
   user?: User;
   reactions?: Reaction[];
   // Additional fields for aggregated reaction data
   totalReactions?: number;
   topReactions?: {
-    type: string;
+    type: ReactionType;
     count: number;
   }[];
+  // New reaction counts structure from the enhanced backend
+  reactionCounts?: ReactionCounts;
 };
 
 export type PostAuthor = {

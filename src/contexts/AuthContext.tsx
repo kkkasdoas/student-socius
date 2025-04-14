@@ -3,6 +3,7 @@ import { User } from '@/types';
 import { Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { conversationService } from '@/services/ConversationService';
 
 // Get allowed email domains from environment variables
 const ALLOWED_EMAIL_DOMAINS = import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS?.split(',') || ['student.tdtu.edu.vn'];
@@ -28,6 +29,10 @@ export interface UserProfile {
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+  };
 }
 
 export type AuthContextType = {
@@ -107,6 +112,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(newSession);
         
         if (newSession?.user) {
+          // Update conversation service user cache
+          conversationService.updateUserCache(newSession.user.id);
+          
           console.log("Session user found:", newSession.user.email);
           
           // Check email domain for verification status using Edge Function
@@ -179,7 +187,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     blockStatus: newProfile.block_status,
                     isDeleted: newProfile.is_deleted,
                     createdAt: new Date(newProfile.created_at),
-                    updatedAt: new Date(newProfile.updated_at)
+                    updatedAt: new Date(newProfile.updated_at),
+                    socialLinks: newProfile.social_links || undefined
                   };
                   
                   setCurrentUser(userData);
@@ -236,7 +245,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 blockStatus: profile.block_status,
                 isDeleted: profile.is_deleted,
                 createdAt: new Date(profile.created_at),
-                updatedAt: new Date(profile.updated_at)
+                updatedAt: new Date(profile.updated_at),
+                socialLinks: profile.social_links || undefined
               };
               
               setCurrentUser(userData);
@@ -260,6 +270,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setIsLoading(false);
           }
         } else {
+          // Clear user cache on sign out
+          conversationService.updateUserCache(null);
+          
           console.log("No session user found, setting current user to null");
           setCurrentUser(null);
           setIsLoading(false);
@@ -402,7 +415,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           blockStatus: profile.block_status,
           isDeleted: profile.is_deleted,
           createdAt: new Date(profile.created_at),
-          updatedAt: new Date(profile.updated_at)
+          updatedAt: new Date(profile.updated_at),
+          socialLinks: profile.social_links || undefined
         };
         
         setCurrentUser(userData);
@@ -433,6 +447,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (data.bio !== undefined) dbData.bio = data.bio;
       if (data.university !== undefined) dbData.university = data.university;
       if (data.profilePictureUrl !== undefined) dbData.profile_picture_url = data.profilePictureUrl;
+      if (data.socialLinks !== undefined) dbData.social_links = data.socialLinks;
       
       // Update profile
       const { error } = await supabase
@@ -465,7 +480,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           blockStatus: profile.block_status,
           isDeleted: profile.is_deleted,
           createdAt: new Date(profile.created_at),
-          updatedAt: new Date(profile.updated_at)
+          updatedAt: new Date(profile.updated_at),
+          socialLinks: profile.social_links || undefined
         };
         
         setCurrentUser(userData);
@@ -487,11 +503,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = useCallback(async (): Promise<void> => {
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Clear conversation service user cache
+      conversationService.updateUserCache(null);
+      
+      // Clear university from session storage
+      sessionStorage.removeItem('userUniversity');
+      
       setCurrentUser(null);
+      setNeedsDisplayName(false);
+      // Additional cleanup...
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error('Failed to log out. Please try again.');
+      console.error("Error logging out:", error);
+      toast.error("Error logging out");
     }
   }, []);
 

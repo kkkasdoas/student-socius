@@ -10,15 +10,20 @@ interface ResponseBody {
   message: string;
 }
 
+// CORS headers to use for all responses
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Max-Age': '86400',
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request')
     return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
+      headers: CORS_HEADERS,
       status: 204,
     })
   }
@@ -33,7 +38,7 @@ serve(async (req) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...CORS_HEADERS,
         },
         status: 405,
       }
@@ -48,7 +53,26 @@ serve(async (req) => {
     )
 
     // Parse the request body
-    const { email } = await req.json() as RequestBody
+    let email = ''
+    try {
+      const body = await req.json() as RequestBody
+      email = body.email
+    } catch (error) {
+      console.error('Error parsing request body:', error)
+      return new Response(
+        JSON.stringify({ 
+          isVerified: false, 
+          message: 'Invalid request body' 
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...CORS_HEADERS,
+          },
+          status: 400,
+        }
+      )
+    }
 
     if (!email) {
       return new Response(
@@ -59,7 +83,7 @@ serve(async (req) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            ...CORS_HEADERS,
           },
           status: 400,
         }
@@ -78,7 +102,7 @@ serve(async (req) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            ...CORS_HEADERS,
           },
           status: 400,
         }
@@ -102,7 +126,7 @@ serve(async (req) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            ...CORS_HEADERS,
           },
           status: 500,
         }
@@ -124,7 +148,7 @@ serve(async (req) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...CORS_HEADERS,
         },
         status: 200,
       }
@@ -139,7 +163,7 @@ serve(async (req) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...CORS_HEADERS,
         },
         status: 500,
       }

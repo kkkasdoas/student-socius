@@ -16,17 +16,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Set up error logging for auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log("Auth state changed:", event, session ? "Session exists" : "No session");
-  
-  if (event === 'SIGNED_IN') {
-    console.log("User signed in successfully");
-  } else if (event === 'SIGNED_OUT') {
-    console.log("User signed out");
-  } else if (event === 'TOKEN_REFRESHED') {
-    console.log("Auth token refreshed");
-  } else if (event === 'USER_UPDATED') {
-    console.log("User updated");
-  }
-});
+// Basic logging for development purposes only
+// We avoid setting up listeners here to prevent duplicate calls
+// The main auth state listener is in AuthContext.tsx
+if (import.meta.env.DEV) {
+  console.log("Supabase client initialized");
+}

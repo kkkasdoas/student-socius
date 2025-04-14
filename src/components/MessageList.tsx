@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Copy, Edit, Reply, Trash, Flag } from 'lucide-react';
 import { toast } from 'sonner';
-import { differenceInHours } from 'date-fns';
+import { differenceInHours, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { conversationService } from '@/services/ConversationService';
 
 type MessageListProps = {
   messages?: Message[];
@@ -31,6 +32,11 @@ const MessageList: React.FC<MessageListProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [messageReactions, setMessageReactions] = useState<{ [messageId: string]: MessageReaction[] }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [displayMessages, setDisplayMessages] = useState<Message[]>(messages);
+  
+  useEffect(() => {
+    setDisplayMessages(messages);
+  }, [messages]);
   
   useEffect(() => {
     if (!conversation) return;
@@ -40,7 +46,7 @@ const MessageList: React.FC<MessageListProps> = ({
         const { data, error } = await supabase
           .from('message_reactions')
           .select('*')
-          .in('messageId', messages.map(m => m.id));
+          .in('messageId', displayMessages.map(m => m.id));
           
         if (error) {
           console.error('Error fetching reactions:', error);
@@ -64,9 +70,9 @@ const MessageList: React.FC<MessageListProps> = ({
     };
     
     fetchReactions();
-  }, [conversation, messages]);
+  }, [conversation, displayMessages]);
   
-  if (!messages || messages.length === 0) {
+  if (!displayMessages || displayMessages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
         <p>No messages yet</p>
@@ -164,10 +170,10 @@ const MessageList: React.FC<MessageListProps> = ({
   };
   
   const handleEditMessage = (message: Message) => {
-    const hoursElapsed = differenceInHours(new Date(), new Date(message.createdAt));
+    const minutesElapsed = differenceInMinutes(new Date(), new Date(message.createdAt));
     
-    if (hoursElapsed > 24) {
-      toast.error('Messages can only be edited within 24 hours of sending');
+    if (minutesElapsed > 30) {
+      toast.error('Messages can only be edited within 30 minutes of sending');
       return;
     }
     
@@ -182,28 +188,18 @@ const MessageList: React.FC<MessageListProps> = ({
       return;
     }
     
-    if (selectedMessage.senderId !== currentUser.id) {
-      toast.error('You can only edit your own messages');
-      return;
-    }
-    
     setIsSubmitting(true);
     
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({
-          content: editContent,
-          isEdited: true,
-          updatedAt: new Date()
-        })
-        .eq('id', selectedMessage.id);
-        
-      if (error) throw error;
+      const result = await conversationService.editMessage(selectedMessage.id, editContent);
       
-      toast.success('Message updated');
-      setShowEditDialog(false);
-      setSelectedMessage(null);
+      if (result.success) {
+        toast.success(result.message);
+        setShowEditDialog(false);
+        setSelectedMessage(null);
+      } else {
+        toast.error(result.message);
+      }
     } catch (error) {
       console.error('Error updating message:', error);
       toast.error('Failed to update message');
@@ -220,24 +216,32 @@ const MessageList: React.FC<MessageListProps> = ({
   const confirmDelete = async () => {
     if (!selectedMessage || !currentUser) return;
     
-    if (selectedMessage.senderId !== currentUser.id) {
-      toast.error('You can only delete your own messages');
-      return;
-    }
-    
     setIsSubmitting(true);
     
     try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', selectedMessage.id);
-        
-      if (error) throw error;
+      console.log('Deleting message:', selectedMessage.id);
+      const result = await conversationService.deleteMessage(selectedMessage.id);
       
-      toast.success('Message deleted');
-      setShowDeleteConfirm(false);
-      setSelectedMessage(null);
+      if (result.success) {
+        toast.success(result.message);
+        setShowDeleteConfirm(false);
+        
+        const deletedMessageId = selectedMessage.id;
+        setDisplayMessages(prev => {
+          console.log(`Locally removing message ID: ${deletedMessageId}`);
+          return prev.filter(msg => msg.id !== deletedMessageId);
+        });
+        
+        setSelectedMessage(null);
+        
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refresh-messages', { 
+            detail: { messageId: deletedMessageId } 
+          }));
+        }, 300);
+      } else {
+        toast.error(result.message);
+      }
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error('Failed to delete message');
@@ -285,7 +289,7 @@ const MessageList: React.FC<MessageListProps> = ({
 
   const groupedMessages: { [key: string]: Message[] } = {};
   
-  messages.forEach(message => {
+  displayMessages.forEach(message => {
     const date = new Date(message.createdAt).toDateString();
     if (!groupedMessages[date]) {
       groupedMessages[date] = [];
@@ -300,11 +304,11 @@ const MessageList: React.FC<MessageListProps> = ({
           <Avatar className="w-16 h-16 mb-2">
             <AvatarImage 
               src={conversation.photo || "https://i.pravatar.cc/150?img=group"} 
-              alt={conversation.chatroomName} 
+              alt={conversation.chatroom_name} 
             />
-            <AvatarFallback>{conversation.chatroomName?.substring(0, 2).toUpperCase() || "CH"}</AvatarFallback>
+            <AvatarFallback>{conversation.chatroom_name?.substring(0, 2).toUpperCase() || "CH"}</AvatarFallback>
           </Avatar>
-          <h2 className="text-xl font-semibold">{conversation.chatroomName || "Chat Room"}</h2>
+          <h2 className="text-xl font-semibold">{conversation.chatroom_name || "Chat Room"}</h2>
           <p className="text-sm text-gray-500">
             {conversation.participants?.length || 0} participants
           </p>
@@ -448,7 +452,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <DialogHeader>
             <DialogTitle>Edit Message</DialogTitle>
             <DialogDescription>
-              Edit your message content below. Messages can only be edited within 24 hours of sending.
+              Edit your message content below. Messages can only be edited within 30 minutes of sending.
             </DialogDescription>
           </DialogHeader>
           

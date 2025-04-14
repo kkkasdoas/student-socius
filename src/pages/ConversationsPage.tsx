@@ -13,7 +13,7 @@ import { User } from '@/types';
 // Define interfaces for Supabase query responses
 interface ParticipantWithConversation {
   conversation_id: string;
-  conversation: {
+  conversations: {
     id: string;
     type: 'private' | 'chatroom';
   };
@@ -109,7 +109,7 @@ const ConversationsPage: React.FC = () => {
         }
         
         // Find a private conversation they share
-        const privateConversation = sharedConversations?.find(item => 
+        const privateConversation = sharedConversations?.find((item: any) => 
           item.conversations && item.conversations.type === 'private'
         );
         
@@ -230,9 +230,9 @@ const ConversationsPage: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium">{user.displayName}</p>
-                      <p className="text-xs text-gray-500">
-                        {user.verificationStatus === 'verified' ? 'Verified Student' : 'Student'}
-                      </p>
+                      {user.university && (
+                        <p className="text-xs text-gray-500">{user.university}</p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -240,15 +240,12 @@ const ConversationsPage: React.FC = () => {
             )}
           </div>
           
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowNewChatDialog(false)}
-            >
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowNewChatDialog(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreateConversation}
+            <Button 
+              onClick={handleCreateConversation} 
               disabled={!selectedUser || creating}
             >
               {creating ? 'Creating...' : 'Start Conversation'}

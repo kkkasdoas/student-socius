@@ -6,10 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Conversation } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 type MessageInputProps = {
   conversation: Conversation;
-  onMessageSent?: () => void;
+  onMessageSent?: (content: string, replyToMessageId?: string | null) => void;
   replyToMessageId?: string | null;
   onCancelReply?: () => void;
 };
@@ -23,60 +24,69 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const { currentUser } = useAuth();
   const [messageContent, setMessageContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const navigate = useNavigate();
   
   const handleSendMessage = async () => {
-    if (!messageContent.trim() || !conversation || !currentUser) {
+    if (!messageContent.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+    
+    if (!conversation) {
+      toast.error('Conversation not found');
+      return;
+    }
+    
+    if (!currentUser) {
+      toast.error('You must be logged in to send messages');
       return;
     }
     
     try {
       setIsSending(true);
       
-      // Create new message in database
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversation.id,
-          sender_id: currentUser.id,
-          content: messageContent.trim(),
-          is_read: false,
-          is_edited: false,
-          reply_to_id: replyToMessageId || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select();
-        
-      if (error) {
-        throw error;
-      }
-      
-      // Update last message in conversation
-      await supabase
-        .from('conversations')
-        .update({
-          last_message_content: messageContent.trim(),
-          last_message_sender_id: currentUser.id,
-          last_message_timestamp: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', conversation.id);
-      
-      // Clear input
-      setMessageContent('');
-      
-      // Call callback if provided
+      // If we have a custom handler, always use it and skip all default behavior
       if (onMessageSent) {
-        onMessageSent();
+        // Use the custom handler and pass the message content
+        const content = messageContent.trim();
+        onMessageSent(content, replyToMessageId);
+        setMessageContent('');
+        
+        // If there's a reply, clear it
+        if (replyToMessageId && onCancelReply) {
+          onCancelReply();
+        }
+        
+        return;
       }
       
-      // Clear reply if applicable
+      // Normal conversation flow
+      const { data, error } = await supabase.rpc('send_message', {
+        conversation_id_param: conversation.id,
+        sender_id_param: currentUser.id,
+        content_param: messageContent.trim(),
+        reply_to_id_param: replyToMessageId || null
+      });
+      
+      if (error) {
+        // Handle specific error cases
+        if (error.message.includes('not a participant')) {
+          throw new Error('You are not a participant in this conversation');
+        } else if (error.message.includes('conversation not found')) {
+          throw new Error('This conversation no longer exists');
+        } else {
+          throw error;
+        }
+      }
+      
+      // Clear input and reply state
+      setMessageContent('');
       if (replyToMessageId && onCancelReply) {
         onCancelReply();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      toast.error('Failed to send message');
+      toast.error(error.message || 'Failed to send message');
     } finally {
       setIsSending(false);
     }
@@ -96,6 +106,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         size="icon" 
         className="text-gray-500"
         aria-label="Attach file"
+        disabled={true} // Disable until file upload is implemented
       >
         <Paperclip className="h-5 w-5" />
       </Button>
@@ -105,6 +116,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         size="icon" 
         className="text-gray-500 mr-2"
         aria-label="Attach image"
+        disabled={true} // Disable until image upload is implemented
       >
         <ImageIcon className="h-5 w-5" />
       </Button>
@@ -117,6 +129,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           placeholder="Type a message..."
           className="min-h-[40px] max-h-[120px] pr-12 py-2 resize-none"
           rows={1}
+          disabled={isSending}
         />
         
         <Button 
