@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { differenceInHours, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { conversationService } from '@/services/ConversationService';
+import ReportModal from './ReportModal';
 
 type MessageListProps = {
   messages?: Message[];
@@ -26,12 +27,10 @@ const MessageList: React.FC<MessageListProps> = ({
   const { currentUser } = useAuth();
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
-  const [reportReason, setReportReason] = useState('');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [messageReactions, setMessageReactions] = useState<{ [messageId: string]: MessageReaction[] }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [displayMessages, setDisplayMessages] = useState<Message[]>(messages);
   
   useEffect(() => {
@@ -188,8 +187,6 @@ const MessageList: React.FC<MessageListProps> = ({
       return;
     }
     
-    setIsSubmitting(true);
-    
     try {
       const result = await conversationService.editMessage(selectedMessage.id, editContent);
       
@@ -203,8 +200,6 @@ const MessageList: React.FC<MessageListProps> = ({
     } catch (error) {
       console.error('Error updating message:', error);
       toast.error('Failed to update message');
-    } finally {
-      setIsSubmitting(false);
     }
   };
   
@@ -215,8 +210,6 @@ const MessageList: React.FC<MessageListProps> = ({
   
   const confirmDelete = async () => {
     if (!selectedMessage || !currentUser) return;
-    
-    setIsSubmitting(true);
     
     try {
       console.log('Deleting message:', selectedMessage.id);
@@ -245,46 +238,12 @@ const MessageList: React.FC<MessageListProps> = ({
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error('Failed to delete message');
-    } finally {
-      setIsSubmitting(false);
     }
   };
   
   const handleReportMessage = (message: Message) => {
     setSelectedMessage(message);
     setShowReportDialog(true);
-  };
-  
-  const submitReport = async () => {
-    if (!selectedMessage || !reportReason.trim() || !currentUser) {
-      toast.error('Please provide a reason for the report');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      const { error } = await supabase
-        .from('message_reports')
-        .insert({
-          messageId: selectedMessage.id,
-          reporterId: currentUser.id,
-          reason: reportReason,
-          createdAt: new Date()
-        });
-        
-      if (error) throw error;
-      
-      toast.success('Report submitted');
-      setShowReportDialog(false);
-      setReportReason('');
-      setSelectedMessage(null);
-    } catch (error) {
-      console.error('Error submitting report:', error);
-      toast.error('Failed to submit report');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const groupedMessages: { [key: string]: Message[] } = {};
@@ -470,15 +429,14 @@ const MessageList: React.FC<MessageListProps> = ({
             <Button 
               variant="outline" 
               onClick={() => setShowEditDialog(false)}
-              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button 
               onClick={submitEdit}
-              disabled={isSubmitting || !editContent.trim()}
+              disabled={!editContent.trim()}
             >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -497,57 +455,32 @@ const MessageList: React.FC<MessageListProps> = ({
             <Button 
               variant="outline" 
               onClick={() => setShowDeleteConfirm(false)}
-              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button 
               variant="destructive"
               onClick={confirmDelete}
-              disabled={isSubmitting}
             >
-              {isSubmitting ? 'Deleting...' : 'Delete Message'}
+              Delete Message
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Report Message</DialogTitle>
-            <DialogDescription>
-              Tell us why you're reporting this message. Your report will be kept anonymous.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="mt-4">
-            <textarea
-              className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={4}
-              placeholder="Please explain why you're reporting this message..."
-              value={reportReason}
-              onChange={e => setReportReason(e.target.value)}
-            />
-          </div>
-          
-          <DialogFooter className="mt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowReportDialog(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={submitReport}
-              disabled={isSubmitting || !reportReason.trim()}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Report'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {selectedMessage && (
+        <ReportModal
+          open={showReportDialog}
+          onOpenChange={setShowReportDialog}
+          type="message"
+          entityId={selectedMessage.id}
+          entity={selectedMessage}
+          onSuccess={() => {
+            setSelectedMessage(null);
+            toast.success('Report submitted successfully');
+          }}
+        />
+      )}
     </div>
   );
 };

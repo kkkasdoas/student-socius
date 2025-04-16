@@ -193,6 +193,10 @@ const CreatePostPage: React.FC = () => {
     setChatroomImagePreview(null);
   };
 
+  // Show chatroom fields only for CampusGeneral and Forum channel types
+  const showChatroomFields = channelType === 'CampusGeneral' || channelType === 'Forum';
+
+  // Update handleSubmit to handle different channel types
   const handleSubmit = async () => {
     // Validate all required fields
     if (!title.trim()) {
@@ -215,7 +219,8 @@ const CreatePostPage: React.FC = () => {
       return;
     }
 
-    if (!chatroomName.trim()) {
+    // Only require chatroom name for channels that create chatrooms
+    if (showChatroomFields && !chatroomName.trim()) {
       toast.error('Please enter a chatroom name');
       return;
     }
@@ -245,57 +250,59 @@ const CreatePostPage: React.FC = () => {
         imageUrl = data.publicUrl;
       }
 
-      // Upload the chatroom image to Supabase Storage if it exists
+      // Upload the chatroom image to Supabase Storage if it exists and channel type creates chatrooms
       let chatroomImageUrl = null;
-      if (chatroomImage) {
-        const fileExt = chatroomImage.name.split('.').pop();
-        const fileName = `chatrooms/${currentUser.id}/${uuidv4()}.${fileExt}`;
-        
-        const { error: uploadError, data: uploadData } = await supabase.storage
-          .from('conversation-photos')
-          .upload(fileName, chatroomImage);
-        
-        if (uploadError) {
-          console.error('Chatroom image upload error:', uploadError);
-          throw new Error(`Chatroom image upload failed: ${uploadError.message}`);
-        }
-        
-        const { data } = supabase.storage
-          .from('conversation-photos')
-          .getPublicUrl(fileName);
-        
-        chatroomImageUrl = data.publicUrl;
-      } else {
-        // Generate a Telegram-style default group icon
-        const iconDataUrl = generateTelegramStyleGroupIcon(chatroomName);
-        
-        // Convert data URL to blob and upload to Supabase
-        try {
-          const response = await fetch(iconDataUrl);
-          const blob = await response.blob();
+      if (showChatroomFields) {
+        if (chatroomImage) {
+          const fileExt = chatroomImage.name.split('.').pop();
+          const fileName = `chatrooms/${currentUser.id}/${uuidv4()}.${fileExt}`;
           
-          const fileName = `default-icons/${uuidv4()}.png`;
-          
-          const { error, data } = await supabase.storage
+          const { error: uploadError, data: uploadData } = await supabase.storage
             .from('conversation-photos')
-            .upload(fileName, blob);
-            
-          if (error) {
-            console.error('Error uploading default icon:', error);
-            // If upload fails, use data URL directly (not ideal for production)
-            chatroomImageUrl = iconDataUrl;
-          } else {
-            // Get the URL of the uploaded icon
-            const { data: urlData } = supabase.storage
-              .from('conversation-photos')
-              .getPublicUrl(fileName);
-              
-            chatroomImageUrl = urlData.publicUrl;
+            .upload(fileName, chatroomImage);
+          
+          if (uploadError) {
+            console.error('Chatroom image upload error:', uploadError);
+            throw new Error(`Chatroom image upload failed: ${uploadError.message}`);
           }
-        } catch (error) {
-          console.error('Error processing default icon:', error);
-          // Fallback
-          chatroomImageUrl = iconDataUrl;
+          
+          const { data } = supabase.storage
+            .from('conversation-photos')
+            .getPublicUrl(fileName);
+          
+          chatroomImageUrl = data.publicUrl;
+        } else {
+          // Generate a Telegram-style default group icon
+          const iconDataUrl = generateTelegramStyleGroupIcon(chatroomName);
+          
+          // Convert data URL to blob and upload to Supabase
+          try {
+            const response = await fetch(iconDataUrl);
+            const blob = await response.blob();
+            
+            const fileName = `default-icons/${uuidv4()}.png`;
+            
+            const { error, data } = await supabase.storage
+              .from('conversation-photos')
+              .upload(fileName, blob);
+              
+            if (error) {
+              console.error('Error uploading default icon:', error);
+              // If upload fails, use data URL directly (not ideal for production)
+              chatroomImageUrl = iconDataUrl;
+            } else {
+              // Get the URL of the uploaded icon
+              const { data: urlData } = supabase.storage
+                .from('conversation-photos')
+                .getPublicUrl(fileName);
+                
+              chatroomImageUrl = urlData.publicUrl;
+            }
+          } catch (error) {
+            console.error('Error processing default icon:', error);
+            // Fallback
+            chatroomImageUrl = iconDataUrl;
+          }
         }
       }
 
@@ -309,8 +316,8 @@ const CreatePostPage: React.FC = () => {
           p_image_url: imageUrl,
           p_channel_type: channelType as ChannelType,
           p_category: category,
-          p_chatroom_name: chatroomName,
-          p_chatroom_photo: chatroomImageUrl
+          p_chatroom_name: showChatroomFields ? chatroomName : null,
+          p_chatroom_photo: showChatroomFields ? chatroomImageUrl : null
         });
         
         if (error) {
@@ -345,35 +352,38 @@ const CreatePostPage: React.FC = () => {
           throw new Error(`Post creation failed: ${postError.message}`);
         }
         
-        // Create the chat room
-        const { data: conversation, error: conversationError } = await supabase
-          .from('conversations')
-          .insert({
-            type: 'chatroom',
-            chatroom_name: chatroomName,
-            photo: chatroomImageUrl, // Use the chatroom image instead of post image
-            post_id: post.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-        
-        if (conversationError) {
-          throw new Error(`Conversation creation failed: ${conversationError.message}`);
-        }
-        
-        // Add the user as a participant in the conversation
-        const { error: participantError } = await supabase
-          .from('conversation_participants')
-          .insert({
-            conversation_id: conversation.id,
-            user_id: currentUser.id,
-            role: 'admin'  // Set creator as admin
-          });
-        
-        if (participantError) {
-          throw new Error(`Participant creation failed: ${participantError.message}`);
+        // Only create chatroom for appropriate channel types
+        if (showChatroomFields) {
+          // Create the chat room
+          const { data: conversation, error: conversationError } = await supabase
+            .from('conversations')
+            .insert({
+              type: 'chatroom',
+              chatroom_name: chatroomName,
+              photo: chatroomImageUrl, // Use the chatroom image instead of post image
+              post_id: post.id,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+          
+          if (conversationError) {
+            throw new Error(`Conversation creation failed: ${conversationError.message}`);
+          }
+          
+          // Add the user as a participant in the conversation
+          const { error: participantError } = await supabase
+            .from('conversation_participants')
+            .insert({
+              conversation_id: conversation.id,
+              user_id: currentUser.id,
+              role: 'admin'  // Set creator as admin
+            });
+          
+          if (participantError) {
+            throw new Error(`Participant creation failed: ${participantError.message}`);
+          }
         }
         
         toast.success('Post created successfully!');
@@ -393,7 +403,8 @@ const CreatePostPage: React.FC = () => {
     content.trim() !== '' && 
     category !== '' && 
     channelType !== '' && 
-    chatroomName.trim() !== '';
+    // Only require chatroom name for channels that create chatrooms
+    (!showChatroomFields || chatroomName.trim() !== '');
 
   return (
     <Layout>
@@ -409,7 +420,9 @@ const CreatePostPage: React.FC = () => {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-semibold">New Group</h1>
+            <h1 className="text-xl font-semibold">
+              {showChatroomFields ? 'New Group' : 'New Post'}
+            </h1>
             <Button 
               onClick={handleSubmit} 
               disabled={isPosting || !isFormValid}
@@ -420,63 +433,55 @@ const CreatePostPage: React.FC = () => {
             </Button>
           </div>
           
-          {/* Chatroom Name and Camera - moved to top */}
-          <div className="mt-4 bg-gray-100 rounded-lg p-3 flex items-center">
-            <div className="flex-shrink-0 mr-3 relative">
-              <label htmlFor="chatroom-image" className="cursor-pointer">
-                {chatroomImagePreview ? (
-                  <div className="w-12 h-12 rounded-full overflow-hidden">
-                    <img 
-                      src={chatroomImagePreview} 
-                      alt="Chatroom avatar" 
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity rounded-full">
-                      <Camera className="h-5 w-5 text-white" />
+          {/* Chatroom Name and Camera - only show for channels that create chatrooms */}
+          {showChatroomFields && (
+            <div className="mt-4 bg-gray-100 rounded-lg p-3 flex items-center">
+              <div className="flex-shrink-0 mr-3 relative">
+                <label htmlFor="chatroom-image" className="cursor-pointer">
+                  {chatroomImagePreview ? (
+                    <div className="w-12 h-12 rounded-full overflow-hidden">
+                      <img 
+                        src={chatroomImagePreview} 
+                        alt="Chatroom avatar" 
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity rounded-full">
+                        <Camera className="h-5 w-5 text-white" />
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
-                    <Camera className="h-5 w-5 text-teal-500" />
-                  </div>
+                  ) : (
+                    <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
+                      <Camera className="h-5 w-5 text-teal-500" />
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    id="chatroom-image" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleChatroomImageChange}
+                  />
+                </label>
+                {chatroomImagePreview && (
+                  <button 
+                    className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm"
+                    onClick={removeChatroomImage}
+                  >
+                    <X className="h-3 w-3 text-gray-500" />
+                  </button>
                 )}
-                <input
-                  id="chatroom-image"
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={handleChatroomImageChange}
+              </div>
+              <div className="flex-1">
+                <input 
+                  type="text" 
+                  placeholder="Group name" 
+                  className="w-full bg-transparent border-0 outline-none"
+                  value={chatroomName}
+                  onChange={(e) => setChatroomName(e.target.value)}
                 />
-              </label>
-              {chatroomImagePreview && (
-                <button 
-                  onClick={removeChatroomImage}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+              </div>
             </div>
-            
-            <div className="flex-1 relative">
-              <Input
-                value={chatroomName}
-                onChange={(e) => setChatroomName(e.target.value)}
-                placeholder="Chatroom name"
-                className="border-none bg-transparent focus-visible:ring-0 pr-8 text-base"
-              />
-              {chatroomName && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6"
-                  onClick={() => setChatroomName('')}
-                >
-                  <X className="h-4 w-4 text-gray-400" />
-                </Button>
-              )}
-            </div>
-          </div>
+          )}
         </div>
         
         {/* Form */}

@@ -487,48 +487,56 @@ const MessagePage: React.FC = () => {
       <div className="flex flex-col h-screen">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="mr-2"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            
-            {(conversation?.type === 'private') && (
-              <Avatar className="h-8 w-8 mr-2">
-                <AvatarImage src={otherUser?.profile_picture_url} />
-                <AvatarFallback>
-                  {otherUser?.display_name?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Center-aligned title */}
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <h2 className="font-semibold">{getConversationName()}</h2>
+            {conversation?.type !== 'private' && (
+              <p className="text-xs text-gray-500">
+                {conversation?.participant_count || 0} participants
+              </p>
             )}
-            
-            <div>
-              <h2 className="font-semibold">{getConversationName()}</h2>
-              {conversation && conversation.type !== 'private' && conversation.photo !== undefined && (
-                <p className="text-xs text-gray-500">
-                  {conversation.participant_count} participants
-                </p>
-              )}
-            </div>
           </div>
           
-          {conversation?.type !== 'private' && conversation?.photo !== undefined && (
-            <Avatar 
-              className="h-8 w-8 cursor-pointer"
-              onClick={() => {
-                // TODO: Implement group details view
-              }}
-            >
-              <AvatarImage src={conversation?.photo} />
-              <AvatarFallback>
-                <Users className="h-5 w-5" />
-              </AvatarFallback>
-            </Avatar>
-          )}
+          {/* Clickable avatar on the right side - always shown */}
+          <Avatar 
+            className="h-8 w-8 cursor-pointer"
+            onClick={() => {
+              if (conversation?.type === 'private' && otherUser?.id) {
+                // Navigate to user profile for private chats
+                // Pass state to indicate we're coming from a conversation
+                navigate(`/user/${otherUser.id}`, { 
+                  state: { fromConversation: true }
+                });
+              } else if (conversation?.type !== 'private') {
+                // Navigate to chatroom info for group chats
+                navigate(`/chatroom-info/${conversation?.id}`);
+              }
+            }}
+          >
+            {conversation?.type === 'private' ? (
+              <>
+                <AvatarImage src={otherUser?.profile_picture_url} />
+                <AvatarFallback>
+                  {otherUser?.display_name?.charAt(0)?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </>
+            ) : (
+              <>
+                <AvatarImage src={conversation?.photo} />
+                <AvatarFallback>
+                  <Info className="h-5 w-5" />
+                </AvatarFallback>
+              </>
+            )}
+          </Avatar>
         </div>
         
         {/* Message List */}
@@ -554,14 +562,62 @@ const MessagePage: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
         
-        {/* Message Input */}
+        {/* Message Input or Join Button based on membership */}
         <div className="border-t p-4">
-          <MessageInput 
-            conversation={conversation}
-            onMessageSent={handleMessageSent}
-            replyToMessageId={replyToMessage?.id}
-            onCancelReply={handleCancelReply}
-          />
+          {conversation?.type !== 'private' && conversation?.is_member === false ? (
+            <div className="flex flex-col items-center">
+              <p className="text-gray-500 mb-2">You're not a member of this chatroom yet</p>
+              <Button 
+                className="w-full bg-cendy-primary hover:bg-cendy-primary/90"
+                onClick={async () => {
+                  try {
+                    // Call join_conversation RPC function
+                    const { data, error } = await supabase
+                      .rpc('join_conversation', { 
+                        conversation_id_param: conversation.id 
+                      });
+                    
+                    if (error) throw error;
+                    
+                    // Show success message
+                    toast.success('You have joined the chatroom!');
+                    
+                    // Refresh conversation data to get updated is_member status
+                    const { data: updatedData, error: refreshError } = await supabase
+                      .rpc('get_conversation_by_id', { 
+                        conversation_id_param: conversationId 
+                      });
+                    
+                    if (refreshError) throw refreshError;
+                    
+                    if (updatedData && updatedData.length > 0) {
+                      // Update conversation state with new data
+                      const conversationData = {
+                        ...updatedData[0],
+                        last_message_timestamp: updatedData[0].last_message_timestamp 
+                          ? new Date(updatedData[0].last_message_timestamp) 
+                          : null
+                      };
+                      
+                      setConversation(conversationData);
+                    }
+                  } catch (error) {
+                    console.error('Error joining chatroom:', error);
+                    toast.error('Failed to join the chatroom');
+                  }
+                }}
+              >
+                Join Chatroom
+              </Button>
+            </div>
+          ) : (
+            <MessageInput 
+              conversation={conversation}
+              onMessageSent={handleMessageSent}
+              replyToMessageId={replyToMessage?.id}
+              onCancelReply={handleCancelReply}
+            />
+          )}
         </div>
       </div>
     </Layout>

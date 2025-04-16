@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MoreVertical, UserX, Share2, BellOff, Flag, Edit, MessageCircle, PlusSquare, Camera, Facebook, Instagram, Bell } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,12 +13,14 @@ import { userProfileService } from '@/services/UserProfileService';
 import { UserGallery } from '@/components/UserGallery';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { conversationService } from '@/services/ConversationService';
+import ReportModal from '@/components/ReportModal';
 
 type TabType = 'photos' | 'posts';
 
 const UserProfilePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -30,6 +32,7 @@ const UserProfilePage: React.FC = () => {
   const [uploadHandler, setUploadHandler] = useState<((file: File) => Promise<void>) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFromConversation, setIsFromConversation] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   
   useEffect(() => {
     const fetchUserData = async () => {
@@ -42,11 +45,10 @@ const UserProfilePage: React.FC = () => {
         const userProfile = await userProfileService.getUserProfile(userId);
         setUser(userProfile);
         
-        // Check if navigation is from a conversation page
-        const referrer = document.referrer;
-        if (referrer.includes('/conversation/')) {
-          setIsFromConversation(true);
-        }
+        // Check if navigation is from a conversation page using location state
+        const fromConversation = location.state?.fromConversation === true;
+        console.log('Navigation state:', { fromConversation, locationState: location.state });
+        setIsFromConversation(fromConversation);
       } catch (error) {
         console.error('Error fetching user data:', error);
         toast.error('Failed to load user profile');
@@ -56,7 +58,7 @@ const UserProfilePage: React.FC = () => {
     };
     
     fetchUserData();
-  }, [userId, currentUser]);
+  }, [userId, currentUser, location.state]);
   
   const handleBlock = async () => {
     if (!currentUser || !user) return;
@@ -279,6 +281,20 @@ const UserProfilePage: React.FC = () => {
     }
   };
 
+  const handleReportUser = () => {
+    if (!currentUser) {
+      toast.error('You need to be logged in to report a user');
+      return;
+    }
+    
+    if (user && user.isOwnProfile) {
+      toast.error('You cannot report your own profile');
+      return;
+    }
+    
+    setShowReportModal(true);
+  };
+
   if (isLoading) {
     return (
       <Layout>
@@ -464,7 +480,7 @@ const UserProfilePage: React.FC = () => {
                         <div className="flex flex-col items-center">
                           <button 
                             className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-1"
-                            onClick={handleReport}
+                            onClick={handleReportUser}
                           >
                             <Flag className="h-6 w-6 text-red-500" />
                           </button>
@@ -736,6 +752,18 @@ const UserProfilePage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Add the ReportModal near the end of the component */}
+      {user && !user.isOwnProfile && (
+        <ReportModal
+          open={showReportModal}
+          onOpenChange={setShowReportModal}
+          type="profile"
+          entityId={user.id}
+          entity={user}
+          onSuccess={() => toast.success('Report submitted successfully')}
+        />
+      )}
     </Layout>
   );
 };

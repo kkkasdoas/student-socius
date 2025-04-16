@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { conversationService } from '@/services/ConversationService';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import ReportModal from '@/components/ReportModal';
 
 // Interface for the get_conversation_full_details SQL function return
 interface ConversationFullDetails {
@@ -31,6 +32,7 @@ interface ConversationFullDetails {
   current_user_joined_at: Date | null;
   can_join: boolean;
   conversation_exists: boolean;
+  is_muted: boolean;
 }
 
 // Define the participant structure based on the SQL function
@@ -62,6 +64,8 @@ const ChatroomInfoPage: React.FC = () => {
   const [userToRemove, setUserToRemove] = useState<any | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Define fetchConversation function before it's used
   const fetchConversation = async () => {
@@ -95,6 +99,9 @@ const ChatroomInfoPage: React.FC = () => {
         current_user_joined_at: conversationData.current_user_joined_at ? new Date(conversationData.current_user_joined_at) : null
       });
       
+      // Set the muted state from the conversation data
+      setIsMuted(conversationData.is_muted || false);
+      
       console.log("Fetched conversation data:", conversationData);
     } catch (error) {
       console.error('Error fetching conversation:', error);
@@ -110,21 +117,6 @@ const ChatroomInfoPage: React.FC = () => {
       try {
         setIsLoading(true);
         await fetchConversation();
-        
-        // Check if the conversation is muted
-        const { data, error } = await supabase
-          .from('muted_entities')
-          .select('*')
-          .match({
-            user_id: (await supabase.auth.getUser()).data.user?.id,
-            entity_id: roomId,
-            entity_type: 'chatroom'
-          });
-        
-        if (data && data.length > 0) {
-          setIsMuted(true);
-        }
-        
         setIsLoading(false);
       } catch (error) {
         console.error('Error fetching conversation data:', error);
@@ -134,6 +126,10 @@ const ChatroomInfoPage: React.FC = () => {
     
     fetchConversationData();
   }, [roomId]);
+  
+  const confirmLeaveChatroom = () => {
+    setShowLeaveConfirmation(true);
+  };
   
   const handleLeaveChatroom = async () => {
     if (!currentUser || !conversation) return;
@@ -164,6 +160,7 @@ const ChatroomInfoPage: React.FC = () => {
       toast.error('Failed to leave chatroom');
     } finally {
       setIsLeaving(false);
+      setShowLeaveConfirmation(false);
     }
   };
   
@@ -352,6 +349,16 @@ const ChatroomInfoPage: React.FC = () => {
     }
   };
   
+  // Add a new function to handle reporting the chatroom
+  const handleReportChatroom = () => {
+    if (!currentUser) {
+      toast.error('You must be logged in to report a chatroom');
+      return;
+    }
+    
+    setShowReportModal(true);
+  };
+  
   if (isLoading) {
     return (
       <Layout>
@@ -371,6 +378,58 @@ const ChatroomInfoPage: React.FC = () => {
       </Layout>
     );
   }
+  
+  const renderActionButtons = () => {
+    // Display different actions based on user's role
+    if (!conversation) return null;
+
+    return (
+      <div className="mt-6 flex flex-col space-y-3">
+        {conversation.current_user_role ? (
+          // User is a member
+          <>
+            {conversation.current_user_role === 'admin' && (
+              <Button
+                variant="default"
+                onClick={() => navigate(`/chatrooms/${conversation.id}/edit`)}
+                className="w-full"
+              >
+                Edit Chatroom
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={confirmLeaveChatroom}
+              className="w-full"
+              disabled={isLeaving}
+            >
+              {isLeaving ? 'Leaving...' : 'Leave Chatroom'}
+            </Button>
+          </>
+        ) : (
+          // User is not a member
+          <Button
+            variant="default"
+            onClick={handleJoinChatroom}
+            className="w-full"
+            disabled={isJoining || !conversation.can_join}
+          >
+            {isJoining ? 'Joining...' : 'Join Chatroom'}
+          </Button>
+        )}
+        
+        {/* Report button available to all users */}
+        <Button
+          variant="outline"
+          onClick={handleReportChatroom}
+          className="w-full flex items-center gap-2 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+        >
+          <Flag className="h-4 w-4" />
+          Report Chatroom
+        </Button>
+      </div>
+    );
+  };
   
   return (
     <Layout>
@@ -472,7 +531,7 @@ const ChatroomInfoPage: React.FC = () => {
               <div className="flex flex-col items-center">
                 <button 
                   className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-1"
-                  onClick={handleLeaveChatroom}
+                  onClick={confirmLeaveChatroom}
                   disabled={isLeaving}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-500">
@@ -498,7 +557,10 @@ const ChatroomInfoPage: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <button className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-1">
+                <button 
+                  className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-1"
+                  onClick={handleReportChatroom}
+                >
                   <Flag className="h-6 w-6 text-red-500" />
                 </button>
                 <span className="text-xs text-red-500">Report</span>
@@ -774,6 +836,52 @@ const ChatroomInfoPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Leave Confirmation Dialog */}
+      <Dialog open={showLeaveConfirmation} onOpenChange={setShowLeaveConfirmation}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave Chatroom</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave this chatroom? You'll need to be added by an admin to rejoin.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter className="mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowLeaveConfirmation(false)}
+              disabled={isLeaving}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleLeaveChatroom}
+              disabled={isLeaving}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isLeaving ? 'Leaving...' : 'Leave Chatroom'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Report Modal */}
+      <ReportModal
+        open={showReportModal}
+        onOpenChange={setShowReportModal}
+        type="chatroom"
+        entityId={conversation.id}
+        entity={{
+          id: conversation.id,
+          type: conversation.type as any,
+          chatroom_name: conversation.chatroom_name,
+          photo: conversation.photo,
+          created_at: conversation.created_at,
+          updated_at: conversation.updated_at
+        }}
+        onSuccess={() => toast.success('Report submitted successfully')}
+      />
     </Layout>
   );
 };

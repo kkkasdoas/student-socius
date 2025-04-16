@@ -21,6 +21,8 @@ import { postService } from '@/services/PostService';
 import { userProfileService } from '@/services/UserProfileService';
 import PostInteractionMenu from './PostInteractionMenu';
 import PostReactions from './PostReactions';
+import { conversationService } from '@/services/ConversationService';
+import ReportModal from './ReportModal';
 
 // Define a type for reaction groups - using the central ReactionCounts
 type ReactionGroups = ReactionCounts;
@@ -202,18 +204,37 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
 
   const navigateToChatroom = useCallback(async () => {
     try {
-    if (post.conversationId) {
-      navigate(`/chatroom/${post.conversationId}`);
-      } else {
-        // Get or create a chatroom for this post
-        const result = await postService.getOrCreateChatroom(post.id);
-        navigate(`/chatroom/${result.conversation_id}`);
+      // Community posts - navigate to private conversation with author
+      if (post.channelType === 'CampusCommunity' || post.channelType === 'Community') {
+        // Don't navigate if it's own post
+        if (isOwnPost) {
+          return;
+        }
+        
+        // Create or get private conversation with post author
+        const conversationId = await conversationService.createOrGetPrivateConversation(
+          currentUser?.id || '',
+          post.userId
+        );
+        
+        // Navigate to conversation with the author - use correct route
+        navigate(`/conversation/${conversationId}`);
+      } 
+      // Normal posts - navigate to group chatroom
+      else {
+        if (post.conversationId) {
+          navigate(`/chatroom/${post.conversationId}`);
+        } else {
+          // Get or create a chatroom for this post
+          const result = await postService.getOrCreateChatroom(post.id);
+          navigate(`/chatroom/${result.conversation_id}`);
+        }
       }
     } catch (error) {
-      console.error('Error navigating to chatroom:', error);
-      toast.error('Failed to open chatroom');
+      console.error('Error navigating to conversation:', error);
+      toast.error('Failed to open conversation');
     }
-  }, [navigate, post.id, post.conversationId]);
+  }, [navigate, post.id, post.conversationId, post.channelType, post.userId, isOwnPost, currentUser?.id]);
   
   const handleShare = useCallback(() => {
     setShowShareSheet(true);
@@ -273,28 +294,6 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
     setShowContextMenu(false);
   };
   
-  const submitReport = async () => {
-    if (!reportReason.trim() || !currentUser) {
-      toast.error('Please provide a reason for the report');
-      return;
-    }
-    
-    try {
-      const result = await postService.reportPost(post.id, reportReason);
-    
-      if (result.success) {
-    toast.success('Report submitted successfully');
-    setShowReportDialog(false);
-    setReportReason('');
-      } else {
-        toast.error(result.message || 'Failed to submit report');
-      }
-    } catch (error) {
-      console.error('Error reporting post:', error);
-      toast.error('Failed to submit report');
-    }
-  };
-  
   const handleEditPost = () => {
     if (!canEdit) {
       toast.error('Posts can only be edited within 30 minutes of posting');
@@ -303,31 +302,6 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
     
     setShowEditDialog(true);
     setShowContextMenu(false);
-  };
-  
-  const submitEdit = async () => {
-    if (!editTitle.trim() || !editContent.trim()) {
-      toast.error('Title and content cannot be empty');
-      return;
-    }
-    
-    try {
-      // In a real app, we would update this to use a proper API call
-      // For now, let's just update the local state optimistically
-    toast.success('Post updated successfully');
-    setShowEditDialog(false);
-    
-      // Update local state
-      post.title = editTitle;
-      post.content = editContent;
-      post.isEdited = true;
-      
-      // Force a re-render
-      setReactionGroups({...reactionGroups});
-    } catch (error) {
-      console.error('Error editing post:', error);
-      toast.error('Failed to update post');
-    }
   };
   
   const handleDeletePost = () => {
@@ -437,6 +411,27 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
   // Format timestamp
   const formattedTime = formatTimeAgo(post.createdAt);
 
+  // Add a message handler that uses the same logic as navigateToChatroom for community posts
+  const handleMessageUser = useCallback(async () => {
+    if (isOwnPost || !currentUser) {
+      return;
+    }
+    
+    try {
+      const conversationId = await conversationService.createOrGetPrivateConversation(
+        currentUser.id,
+        post.userId
+      );
+      
+      // Use correct route for navigation
+      navigate(`/conversation/${conversationId}`);
+      setShowContextMenu(false);
+    } catch (error) {
+      console.error('Error navigating to private conversation:', error);
+      toast.error('Failed to open conversation');
+    }
+  }, [currentUser, isOwnPost, navigate, post.userId]);
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4">
       {/* Post Header */}
@@ -519,7 +514,7 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
         )}
 
         {/* Reactions Section */}
-        {totalReactions > 0 && (
+        {(post.channelType !== 'CampusCommunity' && post.channelType !== 'Community' && totalReactions > 0) && (
           <div 
             className="px-4 py-3 border-t border-gray-100 flex items-center text-gray-500 text-sm"
             onClick={(e) => e.stopPropagation()} // Prevent navigation to chatroom
@@ -553,6 +548,7 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
         onDelete={handleDeletePost}
         onReport={handleReportPost}
         onBlockUser={handleBlockUser}
+        onMessage={handleMessageUser}
       />
 
       {/* Share Sheet Dialog */}
@@ -571,35 +567,14 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
       </Dialog>
       
       {/* Report Dialog */}
-      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent>
-          <div>
-            <h3 className="text-lg font-medium mb-2">Report Post</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Tell us why you're reporting this post. Your report will be kept anonymous.
-            </p>
-          </div>
-          
-          <div className="mt-4">
-            <textarea
-              className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cendy-primary"
-              rows={4}
-              placeholder="Please explain why you're reporting this post..."
-              value={reportReason}
-              onChange={e => setReportReason(e.target.value)}
-            />
-          </div>
-          
-          <div className="mt-4 flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowReportDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submitReport}>
-              Submit Report
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ReportModal
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        type="post"
+        entityId={post.id}
+        entity={post}
+        onSuccess={() => toast.success('Report submitted successfully')}
+      />
       
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
@@ -637,7 +612,20 @@ const PostCard = React.memo(({ post }: { post: Post }) => {
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={submitEdit}>
+            <Button onClick={() => {
+              // In a real app, we would update this to use a proper API call
+              // For now, let's just update the local state optimistically
+              toast.success('Post updated successfully');
+              setShowEditDialog(false);
+              
+              // Update local state
+              post.title = editTitle;
+              post.content = editContent;
+              post.isEdited = true;
+              
+              // Force a re-render
+              setReactionGroups({...reactionGroups});
+            }}>
               Save Changes
             </Button>
           </div>

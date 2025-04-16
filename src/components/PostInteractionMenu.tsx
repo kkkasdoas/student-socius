@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, EyeOff, Edit, Trash, Share, Flag, User } from 'lucide-react';
+import { Bookmark, EyeOff, Edit, Trash, Share, Flag, User, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Post, ReactionType } from '@/types';
 import { differenceInMinutes } from 'date-fns';
@@ -86,6 +86,7 @@ export interface PostInteractionMenuProps {
   onDelete?: () => void;
   onReport?: () => void;
   onBlockUser?: () => void;
+  onMessage?: () => void;
 }
 
 const PostInteractionMenu: React.FC<PostInteractionMenuProps> = ({
@@ -103,7 +104,8 @@ const PostInteractionMenu: React.FC<PostInteractionMenuProps> = ({
   onEdit,
   onDelete,
   onReport,
-  onBlockUser
+  onBlockUser,
+  onMessage
 }) => {
   // Check if post can be edited (within 30 minutes of posting)
   const canEdit = isOwnPost && differenceInMinutes(new Date(), new Date(post.createdAt)) <= 30;
@@ -112,18 +114,22 @@ const PostInteractionMenu: React.FC<PostInteractionMenuProps> = ({
     return userReaction === type;
   };
 
+  const isCommunityPost = post.channelType === 'CampusCommunity' || post.channelType === 'Community';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 max-w-[280px] rounded-lg shadow-lg overflow-hidden">
-        {/* Reactions Section */}
-        <div className="p-3 border-b border-gray-100 flex justify-around">
-          <ReactionButton type="like" isActive={hasReacted('like')} onClick={() => onReaction('like')} />
-          <ReactionButton type="heart" isActive={hasReacted('heart')} onClick={() => onReaction('heart')} />
-          <ReactionButton type="laugh" isActive={hasReacted('laugh')} onClick={() => onReaction('laugh')} />
-          <ReactionButton type="wow" isActive={hasReacted('wow')} onClick={() => onReaction('wow')} />
-          <ReactionButton type="sad" isActive={hasReacted('sad')} onClick={() => onReaction('sad')} />
-          <ReactionButton type="angry" isActive={hasReacted('angry')} onClick={() => onReaction('angry')} />
-        </div>
+        {/* Reactions Section - only show for non-community posts */}
+        {!isCommunityPost && (
+          <div className="p-3 border-b border-gray-100 flex justify-around">
+            <ReactionButton type="like" isActive={hasReacted('like')} onClick={() => onReaction('like')} />
+            <ReactionButton type="heart" isActive={hasReacted('heart')} onClick={() => onReaction('heart')} />
+            <ReactionButton type="laugh" isActive={hasReacted('laugh')} onClick={() => onReaction('laugh')} />
+            <ReactionButton type="wow" isActive={hasReacted('wow')} onClick={() => onReaction('wow')} />
+            <ReactionButton type="sad" isActive={hasReacted('sad')} onClick={() => onReaction('sad')} />
+            <ReactionButton type="angry" isActive={hasReacted('angry')} onClick={() => onReaction('angry')} />
+          </div>
+        )}
         
         {/* Actions Section */}
         <div className="py-1">
@@ -169,6 +175,14 @@ const PostInteractionMenu: React.FC<PostInteractionMenuProps> = ({
                 label={isHidden ? "Unhide" : "Hide"}
                 onClick={onHide}
               />
+              {/* Message option for community posts */}
+              {isCommunityPost && onMessage && (
+                <ContextMenuItem 
+                  icon={<MessageCircle className="h-5 w-5" />} 
+                  label="Message User" 
+                  onClick={onMessage}
+                />
+              )}
               <ContextMenuItem 
                 icon={<Share className="h-5 w-5" />} 
                 label="Share" 

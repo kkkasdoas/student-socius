@@ -187,6 +187,27 @@ export type MessageReport = {
   createdAt: Date;
 };
 
+// New consolidated Report type
+export type ReportType = 'chatroom' | 'message' | 'profile' | 'post';
+
+export type ReportReason = {
+  chatroom: 'spam' | 'inappropriate_content' | 'harassment' | 'scam' | 'other';
+  message: 'spam' | 'harassment' | 'hate_speech' | 'misinformation' | 'other';
+  profile: 'fake_account' | 'impersonation' | 'inappropriate_behavior' | 'spam' | 'other';
+  post: 'spam' | 'inappropriate_content' | 'hate_speech' | 'misinformation' | 'other';
+};
+
+export type Report = {
+  report_id: string;
+  reporter_id: string;
+  reported_entity_id: string;
+  type: ReportType;
+  reason: string;
+  reporter_note?: string;
+  message_id?: string;
+  created_at: Date;
+};
+
 export type MessageReaction = {
   id: string;
   messageId: string;
